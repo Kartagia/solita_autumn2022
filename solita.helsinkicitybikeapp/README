@@ -1,0 +1,14 @@
+PREREQUISITES: 
+- Posgresql java drivers
+- Posgresql server for database
+
+Configuration: 
+==============
+The basic configuration file "joyrneys.pref.xml" is stored on the working 
+directory, or under the home directory of the user. The location of the 
+configuration file can be given with runtime property "journeys.init.xml" with
+value of the XML property file. 
+
+Execution: 
+===============
+The program can be run with java command executing the jar file. 
