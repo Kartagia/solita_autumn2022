@@ -5,9 +5,13 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.InvalidPropertiesFormatException;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+
+import i18n.Logging;
 
 /**
  * The configuration of the Journeys application.
@@ -15,13 +19,15 @@ import java.util.Properties;
  * @author Antti Kautiainen
  *
  */
-public class Config extends Properties {
+public class Config extends Properties implements Logging.LocalizedLogging {
 
 	/**
-	 * The default properties generated from system properties.
+	 * The properties generated from system properties.
+	 * 
+	 * These properties override default properties. 
 	 * 
 	 */
-	protected static final Properties DEFAULT_PROPERTIES;
+	protected static final Properties SYSTEM_PROPERTIES;
 
 	/**
 	 * The property key of the configuration directory.
@@ -95,26 +101,28 @@ public class Config extends Properties {
 	 * 
 	 * @param configFile    The configuration file.
 	 * @param defaultValues The default properties.
-	 * @throws IOException The loading of the configuration failed due Input/Output error. 
-	 * @throws InvalidPropertiesFormatException The given xml file is not valid Properties file. 
+	 * @throws IOException                      The loading of the configuration
+	 *                                          failed due Input/Output error.
+	 * @throws InvalidPropertiesFormatException The given xml file is not valid
+	 *                                          Properties file.
 	 */
 	public Config(File configFile, Properties defaultValues) throws InvalidPropertiesFormatException, IOException {
 		super(defaultValues);
 		if (configFile.canRead() && configFile.isFile()) {
 			if (configFile.toPath().getFileName().endsWith(".xml")) {
-				// Reading from  xml file.
+				// Reading from xml file.
 				this.loadFromXML(new FileInputStream(configFile));
 			} else {
-				// It is text file 
+				// It is text file
 				this.load(new FileInputStream(configFile));
 			}
 		}
 	}
-	
-	
+
 	/**
-	 * Generates database properties from the property set. 
-	 * @return The properties related to the database connection. 
+	 * Generates database properties from the property set.
+	 * 
+	 * @return The properties related to the database connection.
 	 */
 	public Properties getDatabaseProperties() {
 		Properties result = new Properties();
@@ -122,81 +130,75 @@ public class Config extends Properties {
 		if (property != null) {
 			// WE do have database system.
 			if (property.equals("postgresql") || property.equals("psql")) {
-				// We have postgresql database using either psql or postgresql.  
-				result.setProperty("dbms", "postgresql"); 
+				// We have "postgresql" database using either "psql" or "postgresql".
+				result.setProperty("dbms", "postgresql");
 			} else {
 				// Unknown database.
 				result.setProperty("dmms", property);
 			}
-			
-			result.setProperty("db", getProperty(this.DATABASE_PROPERTY_NAME)); 
-			result.setProperty("host", getProperty(this.DATABASE_HOST_PROPERTY_NAME)); 
-			result.setProperty("port", getProperty(this.DATABASE_PORT_PORPERTY_NAME)); 
-			result.setProperty("user", getProperty(this.DATABASE_USER_PROPERTY_NAME)); 
-			result.setProperty("password", getProperty(this.DATABASE_USER_SECRET_PROPERTY_NAME)); 
-			
+
+			result.setProperty("db", getProperty(this.DATABASE_PROPERTY_NAME));
+			result.setProperty("host", getProperty(this.DATABASE_HOST_PROPERTY_NAME));
+			result.setProperty("port", getProperty(this.DATABASE_PORT_PORPERTY_NAME));
+			result.setProperty("user", getProperty(this.DATABASE_USER_PROPERTY_NAME));
+			result.setProperty("password", getProperty(this.DATABASE_USER_SECRET_PROPERTY_NAME));
+
 		} else {
-			// We do not have database system. 
+			// We do not have database system.
 		}
-		return result; 
+		return result;
 	}
+
+	/** The logger used for the static methods of this class. 
+	 * 
+	 */
+	static final Logging LOGGER = Logging.LocalizedLogging.createLocalizedLogging(new Logging.MessageLogging() {
+	});
 
 	/**
 	 * Static initializer creating the default properties from system properties.
 	 */
 	static {
-		DEFAULT_PROPERTIES = new Properties();
+		SYSTEM_PROPERTIES = new Properties();
 
 		String propertyFileName = System.getProperty(XML_PROPERTY_FILE_PROPERTY_NAME, PROPERTY_XML_FILENAME);
 
+		// Creating the file to determine whether the base directory is tested for existing configuration file or not. 
 		File propertyFile = new File(propertyFileName);
-
-		/**
-		 * The filter accepting only existing readable configuration file.
-		 * 
-		 * If the given property file name is absolute path, the configuration file
-		 * filter is undefined.
-		 */
-		java.io.FileFilter configFileFilter = (propertyFile.isAbsolute() ? null : new java.io.FileFilter() {
-
-			@Override
-			public boolean accept(File pathname) {
-				// The configuration file has to be a readable file ending with the property
-				// file name.
-				return (pathname.isFile() && pathname.canRead() && pathname.toPath().endsWith(propertyFileName));
-			}
-
-		});
 
 		// Setting the base directory.
 		File[] fileList = null;
 		boolean found = false;
 		String directoryName = null;
 		File dir;
-		for (String propertyName : new String[] { BASE_DIRECTORY_PROPERTY_NAME, "user.dir", "user.home" }) {
-			try {
-				directoryName = System.getProperty(propertyName);
-				if (directoryName != null) {
-					dir = new java.io.File(directoryName);
-					if (dir.exists() && dir.canRead() && dir.isDirectory()) {
 
-						if (configFileFilter == null || (fileList = dir.listFiles(configFileFilter)).length >= 1) {
-							// The configuration file exists.
-							// The directory is valid starting directory.
-							DEFAULT_PROPERTIES.setProperty(BASE_DIRECTORY_PROPERTY_NAME, directoryName);
-							found = true;
-							break; // Exiting loop as the property was set.
-						}
+		// Seeking default base directory - the default base directory has to have the
+		// configuration file.
+		// TODO: Add handling of the base directories property name to at list of base
+		// directories.
+		List<String> baseDirectoryPropertyList = Arrays.asList(BASE_DIRECTORY_PROPERTY_NAME);
+		for (String propertyName : baseDirectoryPropertyList) {
+			directoryName = System.getProperty(propertyName);
+			if (directoryName != null) {
+				dir = new java.io.File(directoryName);
+				if (dir.exists() && dir.isDirectory()) {
+					if (!propertyFile.isAbsolute() && (new File(dir, propertyFileName)).canRead()) {
+						SYSTEM_PROPERTIES.setProperty(BASE_DIRECTORY_PROPERTY_NAME, directoryName);
+						found = true;
+						LOGGER.info("Base directory \"{0}\" set from system properties", directoryName);
+						break;
+					} else {
+						LOGGER.info("Base directory candidate \"{0}\" did not contain configuration file \"{1}\"", directoryName,
+								propertyFileName);
 					}
+				} else if (!dir.exists()) {
+					LOGGER.info("Base directory candidate \"{0}\" did not exist", directoryName);
+				} else if (dir.isDirectory()) {
+					LOGGER.info("Base directory candidate \"{0}\" is not a directory", directoryName);
+				} else {
+					LOGGER.info("Base directory candidate \"{0}\" coould not be read", directoryName);
 				}
-			} catch (SecurityException se) {
-				// The acquisition of the property failed.
-				// - Trying the next option.
 			}
-		}
-		if (!found) {
-			// The setting of the base directory failed.
-
 		}
 
 	}

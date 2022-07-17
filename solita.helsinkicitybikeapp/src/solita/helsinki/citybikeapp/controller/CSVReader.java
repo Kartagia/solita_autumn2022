@@ -43,8 +43,10 @@ public class CSVReader {
 
 	/**
 	 * Does the reader require header from CSV files.
+	 * 
+	 * By default the reader does not require header row. 
 	 */
-	private boolean requiresHeader; 
+	private boolean requiresHeader = false; 
 	
 	/**
 	 * Does the reader require header from CSV files. 
@@ -56,11 +58,33 @@ public class CSVReader {
 	}
 	
 	/**
-	 * Does the CSV reader require header row. 
+	 * Creates a new CSV reader which may have header row. 
+	 * 
+	 * If the reader does not require header row, no header row is 
+	 * read. 
+	 * 
+	 * @param requireHeader Does the reader require header row. 
 	 */
 	public CSVReader(boolean requireHeader) {
 		this.requiresHeader = requireHeader; 
 	}
+	
+	/**
+	 * Creates a new CSV reader using given handler and header pattern. 
+	 * @param handler The handler performing the handling of the CSV rows. 
+	 * @param headerPattern The pattern handling the header row. If this
+	 *  value is undefined (<code>null</code>), the reader would not require
+	 *  header row.
+	 */
+	public CSVReader(CSVHandler handler, Pattern headerPattern) {
+		this(headerPattern != null); 
+		this.handler = handler;
+		if (headerPattern != null) {
+			this.headerPattern = headerPattern; 
+		}
+	}
+	
+	
 	
 	/**
 	 * Creates reader for the given URL.
@@ -286,8 +310,7 @@ public class CSVReader {
 	 * The pattern matching for the CSV header.
 	 * 
 	 */
-	public static final Pattern CSV_HEADER_PATTERN = Pattern
-			.compile("^\\u000d" + "\\u00bb" + "\\u00bf" + CSVReader.CSV_SIMPLE_DATA_ROW.toString());
+	public static final Pattern CSV_HEADER_PATTERN = CSVReader.CSV_SIMPLE_DATA_ROW;
 
 	/**
 	 * Simple delimiter pattern separating data rows. The pattern has no capturing
@@ -320,15 +343,17 @@ public class CSVReader {
 			"(?:" + String.join("|", (new String[] { ESCAPED_REGEX_STRING, UNESCAPED_FIELD_REGEX_STRING })) + ")");
 
 	/**
-	 * The regular expression matching to a simple row. (Simple row does not allow
-	 * CRLF combination within quotes)
+	 * The regular expression matching to a simple row. 
+	 * The pattern will have two matching groups: the first field and the last field, if there was more than one field. 
+	 * (Simple row does not allow CRLF combination within quotes)
 	 */
-	public static final Pattern CSV_SIMPLE_DATA_ROW = Pattern.compile("^\\s*" + FIELD_REGEX.toString() + "(?:"
-			+ CSV_DELIMITER_PATTERN.toString() + FIELD_REGEX.toString() + ")*\\s*$");
+	public static final Pattern CSV_SIMPLE_DATA_ROW = Pattern.compile("^\\s*(" + FIELD_REGEX.toString() + ")(?:"
+			+ CSV_DELIMITER_PATTERN.toString() + "("+ FIELD_REGEX.toString() + ")"+ ")*\\s*$");
 
 	/**
-	 * The regular expression matching the next field of the row. The pattern has no
-	 * capturing groups.
+	 * The regular expression matching the next field of the row.
+	 * 
+	 * The pattern ahs two capturing groups: The raw field value, and the delimiter following the field. 
 	 */
 	public static final Pattern CSV_NEXT_FIELD_REGEX = Pattern
 			.compile("(" + FIELD_REGEX.toString() + ")" + "(" + CSV_DELIMITER_PATTERN.toString() + "|$" + ")");
@@ -338,8 +363,7 @@ public class CSVReader {
 	// Methods: Reading the CSV content
 	//
 	// The instance methods used to read CSV rows. These methods are used for actual
-	///////////////////////////////////////////////////////////////////////////////////////////////////// implementation
-	// to allow overriding the default patterns and handlers.
+	// implementation to allow overriding the default patterns and handlers.
 	//
 	/////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -354,6 +378,22 @@ public class CSVReader {
 		return result.add(field);
 	}
 
+	/**
+	 * The pattern of the header row. By default it is just a data row. 
+	 */
+	private Pattern headerPattern = CSVReader.CSV_HEADER_PATTERN; 
+
+	
+	/**
+	 * The pattern matching header row. 
+	 * 
+	 * @return The pattern matching data row. The pattern will have two groups: 
+	 * 	
+	 */
+	public Pattern headerRowPattern() {
+		return headerPattern;  
+	}
+	
 	/**
 	 * The pattern matching simple data row. The simple data row does not allow line
 	 * breaks within the quoted values.
@@ -538,6 +578,58 @@ public class CSVReader {
 		}
 	}
 
+	/**
+	 * Reads all rows of the currently open CSV source. 
+	 * @param handler The handler handling read rows. 
+	 * @return True, if and only if the reading succeeded. 
+	 * @throws CSVException The reading failed due CSV exception. 
+	 * @throws IOException The reading failed due Input/Output error. 
+	 * @throws ParseException The reading failed due invalid content. 
+	 */
+	public boolean readAll(CSVHandler handler) throws CSVException, IOException, ParseException {
+		if (this.requiresHeader()) {
+			List<String> headerRow = null;
+			try {
+				headerRow = this.readHeaderRow();
+			} catch (IllegalStateException e) {
+				handler.handleError(e);
+			} catch(IOException ioe) {
+				handler.handleError(ioe);
+			} catch (ParseException pe) {
+				handler.handleError(pe);
+			}
+			if (headerRow == null) {
+				throw new CSVException.EmptyRowException(CSVException.RowType.HEADER, "Empty header row", null);
+			}
+		} 
+		try {
+		List<String> dataRow; 
+		while ( (dataRow = this.readDataRow()) != null) {
+			if (handler != null) {
+				try {
+					handler.handleRow(dataRow);
+				} catch (IllegalStateException e) {
+					handler.handleError(e);
+				} catch(CSVException csve) {
+					handler.handleError(csve);
+				}
+			}
+		}
+		
+		} catch(CSVException e) {
+			
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (ParseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		// Reached end of file. 
+		return true; 
+	}
+	
 	/**
 	 * Parses next document.
 	 * 

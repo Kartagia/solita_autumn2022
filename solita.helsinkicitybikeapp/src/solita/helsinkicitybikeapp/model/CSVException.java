@@ -8,7 +8,7 @@ import java.util.List;
  * @author Antti Kautiainen
  *
  */
-public class CSVException extends Exception {
+public class CSVException extends RuntimeException {
 
 	/**
 	 * The exception caused by an attempt to give second header for same CSV

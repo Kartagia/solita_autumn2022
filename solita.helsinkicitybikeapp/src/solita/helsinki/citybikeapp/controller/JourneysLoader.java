@@ -5,10 +5,17 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.sql.Connection;
+import java.util.List;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
+import i18n.Logging;
+import solita.helsinki.citybikeapp.controller.CSVReader.CSVHandler;
+import solita.helsinkicitybikeapp.model.CSVException;
+import solita.helsinkicitybikeapp.model.CSVException.RowType;
 import solita.helsinkicitybikeapp.model.Config;
 import solita.helsinkicitybikeapp.model.Journeys;
+import solita.helsinkicitybikeapp.model.Journeys.Journey;
 
 /**
  * The class loading journeys. 
@@ -19,11 +26,69 @@ import solita.helsinkicitybikeapp.model.Journeys;
  * @author Antti Kautiainen
  *
  */
-public class JourneysLoader {
+public class JourneysLoader implements Logging.LocalizedMessageLogging {
 
+	
+	
+	/**
+	 * The pattern matching for the CSV header of the Journeys CSV files. 
+	 * 
+	 */
+	public static final Pattern CSV_HEADER_PATTERN = Pattern
+			.compile("^(?:\\u000d\\u00bb\\u00bf)?" + CSVReader.CSV_SIMPLE_DATA_ROW.toString());
+
+	
 	private Journeys data; 
 	
-	private CSVReader reader; 
+	protected Journeys getJourneys() {
+		return this.data; 
+	}
+	
+	private CSVReader reader = new CSVReader(getCSVHandler(), CSV_HEADER_PATTERN);
+	
+	private CSVHandler handler = new CSVHandler() {
+
+		private List<String> propertyCaptions = null; 
+		
+		@Override
+		public void handleRow(List<String> rowFields) throws CSVException {
+			// Creating the journey to add.
+			Journeys.Journey entry = (JourneysLoader.this.getJourneys()).new Journey();
+			int index = 0; 
+			for (String property: Journey.getPropertyNames()) {
+				try {
+					// Assigning the property value
+					entry.setProperty(property, entry.propertyFormatter(property).parseObject(rowFields.get(index))); 
+				} catch(IllegalArgumentException | java.text.ParseException pe) {
+					// The value was invalid. 
+					throw new CSVException.InvalidRowException(RowType.DATA, 
+							format("Invalid field value at index {0}", index), rowFields); 
+				}
+				index++; 
+			}
+		}
+
+		@Override
+		public void handleHeaders(List<String> headerFields) throws CSVException {
+			if (propertyCaptions != null) {
+				throw new CSVException.DuplicateHeaderException(headerFields);
+			}
+			if (data.getJourneyPropertyNames().size() != headerFields.size()) {
+				throw new CSVException.InvalidRowException(CSVException.RowType.HEADER, "Invalid field count", headerFields);
+			} 
+			// TODO: Add journey caption support to the Journeys
+			propertyCaptions = headerFields; 
+		}
+		
+	}; 
+	
+	/**
+	 * The handler handling the CSV reading. 
+	 * @return
+	 */
+	protected CSVHandler getCSVHandler() {
+		return handler; 
+	}
 	
 	/**
 	 * Create Journeys CSV file loader from given source file. 
@@ -33,8 +98,9 @@ public class JourneysLoader {
 	 * @throws java.sql.SQLException The database connection failed. 
 	 */
 	public JourneysLoader(URL source, java.sql.Connection db) throws IOException, java.sql.SQLException {
-		reader = new CSVReader(source); 
-		data = db == null?new Journeys():new Journeys(db); 
+		reader = new CSVReader(getCSVHandler(), CSV_HEADER_PATTERN);
+		reader.open(source);
+		data = db == null?new Journeys.CSVJourneys():new Journeys.DatabaseJourneys(db); 
 	}
 
 	/**
@@ -45,8 +111,8 @@ public class JourneysLoader {
 	 * @throws java.sql.SQLException The database connection failed. 
 	 */
 	public JourneysLoader(File source, java.sql.Connection db) throws IOException, java.sql.SQLException {
-		reader = new CSVReader();
+		reader = new CSVReader(getCSVHandler(), CSV_HEADER_PATTERN);
 		reader.open(source);
-		data = db == null?new Journeys():new Journeys(db); 
+		data = db == null?new Journeys.CSVJourneys():new Journeys.DatabaseJourneys(db); 
 	}
 }
