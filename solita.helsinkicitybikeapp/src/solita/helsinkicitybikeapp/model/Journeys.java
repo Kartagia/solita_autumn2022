@@ -1,7 +1,5 @@
 package solita.helsinkicitybikeapp.model;
 
-import java.beans.PropertyChangeEvent;
-import java.beans.PropertyVetoException;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -87,7 +85,7 @@ public abstract class Journeys implements Logging.MessageLogging {
 
 			}
 			if (end == index) {
-				// We do not hvae valid integer.
+				// We do not have valid integer.
 				parsePosition.setErrorIndex(end);
 				return null;
 			} else {
@@ -320,25 +318,7 @@ public abstract class Journeys implements Logging.MessageLogging {
 			if (!(validProperty(property) && validPropertyType(property, value))) {
 				return false;
 			}
-			
-			
-			PropertyChangeEvent event = new PropertyChangeEvent(this, property, getProperty(property), value);
-		
-			try {
-				fireVetoablePropertyChange(event); 
-			} catch(PropertyVetoException pve) {
-				info("Property change {0} vetoed with message {1}", event, pve.getMessage());
-				return false; 
-			}
 			return true; 
-		}
-		
-		protected void fireVetoablePropertyChange(PropertyChangeEvent pve) throws PropertyVetoException {
-			
-		}
-		
-		protected void firePropertyChange(PropertyChangeEvent pve) {
-			
 		}
 	}
 
