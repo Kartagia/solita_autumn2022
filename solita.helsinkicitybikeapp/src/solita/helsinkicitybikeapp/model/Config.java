@@ -16,6 +16,22 @@ import i18n.Logging;
 /**
  * The configuration of the Journeys application.
  * 
+ * The order of precedence of configuration property values from highest to
+ * lowest:
+ * <ol>
+ * <li>The system properties property values</li>
+ * <li>The configuration files from last to first.</li>
+ * <li>The default values (if any)</li>
+ * </ol>
+ * 
+ * For example if the system has 3 configuration files,
+ * <code>journeys.properties.xml</code> having properties file property of
+ * <code>dev.properties.xml</code>. The referred properties file has properties
+ * file property of <code>db.properties.xml</code>, the properties of
+ * <code>db.properties.xml</code> will be used instead of any properties given
+ * in either <code>dev.properties.xml</code> or
+ * <code>journeys.properties.xml</code>.
+ * 
  * @author Antti Kautiainen
  *
  */
@@ -24,7 +40,7 @@ public class Config extends Properties implements Logging.LocalizedLogging {
 	/**
 	 * The properties generated from system properties.
 	 * 
-	 * These properties override default properties. 
+	 * These properties override default properties.
 	 * 
 	 */
 	protected static final Properties SYSTEM_PROPERTIES;
@@ -77,7 +93,7 @@ public class Config extends Properties implements Logging.LocalizedLogging {
 	/**
 	 * The default name of the configuration file.
 	 */
-	public static final String PROPERTY_XML_FILENAME = "journeys_config.xml";
+	public static final String PROPERTY_XML_FILENAME = "journeys.config.xml";
 
 	/**
 	 * Creates a new default configuration.
@@ -87,9 +103,9 @@ public class Config extends Properties implements Logging.LocalizedLogging {
 	}
 
 	/**
-	 * Creates a new default configuration with given values.
+	 * Creates a new default configuration with given default values.
 	 * 
-	 * @param defaultValues The default values.
+	 * @param defaultValues The default values used for missing properties.
 	 */
 	public Config(Properties defaultValues) {
 		super(defaultValues);
@@ -134,7 +150,7 @@ public class Config extends Properties implements Logging.LocalizedLogging {
 				result.setProperty("dbms", "postgresql");
 			} else {
 				// Unknown database.
-				result.setProperty("dmms", property);
+				result.setProperty("dbms", property);
 			}
 
 			result.setProperty("db", getProperty(this.DATABASE_PROPERTY_NAME));
@@ -149,47 +165,52 @@ public class Config extends Properties implements Logging.LocalizedLogging {
 		return result;
 	}
 
-	/** The logger used for the static methods of this class. 
+	/**
+	 * The logger used for the static methods of this class.
 	 * 
 	 */
 	static final Logging LOGGER = Logging.LocalizedLogging.createLocalizedLogging(new Logging.MessageLogging() {
 	});
 
 	/**
-	 * Static initializer creating the default properties from system properties.
+	 * The default directory storing user properties.
 	 */
-	static {
-		SYSTEM_PROPERTIES = new Properties();
+	public static final String DEFAULT_CONFIG_DIRECTORY = ".journeys";
 
-		String propertyFileName = System.getProperty(XML_PROPERTY_FILE_PROPERTY_NAME, PROPERTY_XML_FILENAME);
+	/**
+	 * The default configuration directory under user home directory.
+	 * 
+	 * @return The default configuration directory under user home.
+	 */
+	public static String getUserHomeConfigDirectory() {
+		return System.getProperty("user.home") + System.getProperty("file.separator") + DEFAULT_CONFIG_DIRECTORY;
+	}
 
-		// Creating the file to determine whether the base directory is tested for existing configuration file or not. 
-		File propertyFile = new File(propertyFileName);
-
-		// Setting the base directory.
-		File[] fileList = null;
-		boolean found = false;
-		String directoryName = null;
+	/**
+	 * The base directory of the given file.
+	 * 
+	 * @param propertyFileName The name of the property file.
+	 * @return If the given given file is relative, tries to seek the directory
+	 *         containing the property file.
+	 */
+	public static String getBaseDirectory(String propertyFileName) throws java.io.IOException {
 		File dir;
-
-		// Seeking default base directory - the default base directory has to have the
-		// configuration file.
-		// TODO: Add handling of the base directories property name to at list of base
-		// directories.
-		List<String> baseDirectoryPropertyList = Arrays.asList(BASE_DIRECTORY_PROPERTY_NAME);
-		for (String propertyName : baseDirectoryPropertyList) {
-			directoryName = System.getProperty(propertyName);
+		File propertyFile = new File(propertyFileName);
+		if (propertyFile.isAbsolute()) {
+			// The file is absolute. The base directory is undefined.
+			return null;
+		}
+		List<String> baseDirectoryPropertyList = Arrays.asList(System.getProperty(BASE_DIRECTORY_PROPERTY_NAME),
+				System.getProperty("user.dir"), Config.getUserHomeConfigDirectory());
+		for (String directoryName : baseDirectoryPropertyList) {
 			if (directoryName != null) {
 				dir = new java.io.File(directoryName);
 				if (dir.exists() && dir.isDirectory()) {
-					if (!propertyFile.isAbsolute() && (new File(dir, propertyFileName)).canRead()) {
-						SYSTEM_PROPERTIES.setProperty(BASE_DIRECTORY_PROPERTY_NAME, directoryName);
-						found = true;
-						LOGGER.info("Base directory \"{0}\" set from system properties", directoryName);
-						break;
+					if ((new File(dir, propertyFileName)).canRead()) {
+						return directoryName;
 					} else {
-						LOGGER.info("Base directory candidate \"{0}\" did not contain configuration file \"{1}\"", directoryName,
-								propertyFileName);
+						LOGGER.info("Base directory candidate \"{0}\" did not contain configuration file \"{1}\"",
+								directoryName, propertyFileName);
 					}
 				} else if (!dir.exists()) {
 					LOGGER.info("Base directory candidate \"{0}\" did not exist", directoryName);
@@ -200,7 +221,67 @@ public class Config extends Properties implements Logging.LocalizedLogging {
 				}
 			}
 		}
+		// None of the directories contained property file.
+		return null;
+	}
 
+	/**
+	 * The system default properties of the current configuration. 
+	 * @return The system default properties of the current instance.
+	 */
+	public Properties getSystemDefaultProperties() {
+		return Config.SYSTEM_PROPERTIES;
+	}
+	
+	/**
+	 * Initializes the system default properties. 
+	 * @return The system default properties. 
+	 */
+	public static Properties initSystemDefaultProperties() {
+		Properties SYSTEM_PROPERTIES = new Properties();
+
+		String propertyFileName = System.getProperty(XML_PROPERTY_FILE_PROPERTY_NAME, PROPERTY_XML_FILENAME);
+
+		// Creating the file to determine whether the base directory is tested for
+		// existing configuration file or not.
+		File propertyFile = new File(propertyFileName);
+
+		// Setting the base directory.
+		File[] fileList = null;
+		boolean found = false;
+		try {
+			String directoryName = Config.getBaseDirectory(propertyFileName);
+			if (directoryName != null) {
+				// Setting the system properties of the base directory name to the found
+				// directory name, and changing the property file to address the file in that
+				// directory.
+				SYSTEM_PROPERTIES.setProperty(BASE_DIRECTORY_PROPERTY_NAME, directoryName);
+				LOGGER.info("Base directory \"{0}\"", directoryName);
+				LOGGER.info("Configuration file \"{1}\" under Base directory \"{0}\"", directoryName, propertyFileName);
+				propertyFile = new File(directoryName, propertyFileName);
+			}
+
+			if (!propertyFile.exists()) {
+				// The base configuration file does not exist.
+				LOGGER.severe("Configuration file \"{0}\" does not exist", propertyFile.getCanonicalPath());
+			} else if (!propertyFile.canRead()) {
+				// The base configuration file does not exist or it cannot be read.
+				LOGGER.severe("Cannot read configuration file \"{0}\"", propertyFile.getCanonicalPath());
+			} else {
+				// All is fine.
+			}
+		} catch (java.io.IOException ioe) {
+			// The reading of the base directory failed to exception
+			LOGGER.severe("Could not read default configuration due exception %s", ioe.toString());
+		}
+		return SYSTEM_PROPERTIES; 
+	}
+	
+	/**
+	 * Static initializer creating the default properties from system properties.
+	 */
+	static {
+		SYSTEM_PROPERTIES = Config.initSystemDefaultProperties();
 	}
 
 }

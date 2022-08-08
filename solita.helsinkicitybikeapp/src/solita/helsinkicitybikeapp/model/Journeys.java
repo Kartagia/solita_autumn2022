@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.function.Predicate;
 
 import i18n.Logging;
 
@@ -52,7 +53,8 @@ public abstract class Journeys implements Logging.MessageLogging {
 
 	}
 
-	/** The positive integer format.
+	/**
+	 * The positive integer format.
 	 * 
 	 * @author kautsu
 	 *
@@ -60,12 +62,12 @@ public abstract class Journeys implements Logging.MessageLogging {
 	public class PositiveIntegerFormat extends NumberFormat {
 
 		/**
-		 * The positive integer format. 
+		 * The positive integer format.
 		 */
 		public PositiveIntegerFormat() {
-			super(); 
+			super();
 		}
-		
+
 		@Override
 		public StringBuffer format(double number, StringBuffer toAppendTo, FieldPosition pos) {
 			// TODO Auto-generated method stub
@@ -114,9 +116,8 @@ public abstract class Journeys implements Logging.MessageLogging {
 		 * 
 		 * @return The list of properties of the journeys.
 		 */
-		public static List<String> getPropertyNames() {
-			return Arrays.asList("id", "start.time", "end.time", "start.location.id", "end.location.id",
-					"start.location.name", "end.location.name", "distance", "duraction");
+		public List<String> getPropertyNames() {
+			return Journeys.this.getPropertyNames();
 		}
 
 		/**
@@ -124,8 +125,8 @@ public abstract class Journeys implements Logging.MessageLogging {
 		 * 
 		 * @return The list of properties with date value.
 		 */
-		public static List<String> getDateProperties() {
-			return Arrays.asList("start.time", "end.time");
+		public List<String> getDateProperties() {
+			return Journeys.this.getJourneyDateProperties();
 		}
 
 		/**
@@ -133,8 +134,8 @@ public abstract class Journeys implements Logging.MessageLogging {
 		 * 
 		 * @return The list of properties with integer value.
 		 */
-		public static List<String> getIntegerProperties() {
-			return Arrays.asList("id", "start.location.id", "end.location.id", "distance", "duration");
+		public List<String> getIntegerProperties() {
+			return Journeys.this.getJourneyIntegerProperties();
 		}
 
 		/**
@@ -142,8 +143,8 @@ public abstract class Journeys implements Logging.MessageLogging {
 		 * 
 		 * @return The list of properties with date value.
 		 */
-		public static List<String> getStringProperties() {
-			return Arrays.asList("start.location.id", "end.location.id");
+		public List<String> getStringProperties() {
+			return Journeys.this.getJourneyStringProperties();
 		}
 
 		/**
@@ -215,9 +216,9 @@ public abstract class Journeys implements Logging.MessageLogging {
 		 */
 		public Format propertyFormatter(String property) {
 			if (this.isDateProperty(property)) {
-				return new JourneyDateFormat(); 
+				return new JourneyDateFormat();
 			} else if (this.isIntegerProperty(property)) {
-				return new PositiveIntegerFormat(); 
+				return new PositiveIntegerFormat();
 			} else if (this.isIntegerProperty(property)) {
 				/**
 				 * The format parsing strings.
@@ -270,39 +271,45 @@ public abstract class Journeys implements Logging.MessageLogging {
 			return getPropertyNames().contains(property);
 		}
 
-		/** 
-		 * Test the validity of the property value type. 
-		 * @param property the property of the tested type. 
-		 * @param value The tested value.
-		 * @return true, if and only if the given property value is of valid type. 
+		/**
+		 * Test the validity of the property value type.
+		 * 
+		 * @param property the property of the tested type.
+		 * @param value    The tested value.
+		 * @return true, if and only if the given property value is of valid type.
 		 */
 		public boolean validPropertyType(String property, Object value) {
 			return (isDateProperty(property) || isIntegerProperty(property) || isStringProperty(property));
 		}
-		
+
 		/**
-		 * Do the property has date value.  
+		 * Do the property has date value.
+		 * 
 		 * @param property The tested property.
-		 * @return True, if and only if the given property has date value. 
+		 * @return True, if and only if the given property has date value.
 		 */
 		public boolean isDateProperty(String property) {
-			return property != null && this.getDateProperties().contains(property); 
+			return property != null && this.getDateProperties().contains(property);
 		}
+
 		/**
-		 * Do the property has integer value.  
+		 * Do the property has integer value.
+		 * 
 		 * @param property The tested property.
-		 * @return True, if and only if the given property has integer value. 
+		 * @return True, if and only if the given property has integer value.
 		 */
 		public boolean isIntegerProperty(String property) {
-			return property != null && this.getIntegerProperties().contains(property); 
+			return property != null && this.getIntegerProperties().contains(property);
 		}
+
 		/**
-		 * Do the property has String value.  
+		 * Do the property has String value.
+		 * 
 		 * @param property The tested property.
-		 * @return True, if and only if the given property has String value. 
+		 * @return True, if and only if the given property has String value.
 		 */
 		public boolean isStringProperty(String property) {
-			return property != null && this.getStringProperties().contains(property); 
+			return property != null && this.getStringProperties().contains(property);
 		}
 
 		/**
@@ -318,107 +325,49 @@ public abstract class Journeys implements Logging.MessageLogging {
 			if (!(validProperty(property) && validPropertyType(property, value))) {
 				return false;
 			}
-			return true; 
-		}
-	}
-
-	/**
-	 * The database using Journeys.
-	 * 
-	 * @author Antti Kautiainen
-	 *
-	 */
-	public static class DatabaseJourneys extends Journeys {
-		/**
-		 * The connection to the Journeys database.
-		 */
-		private java.sql.Connection journeysDB = null;
-
-		/**
-		 * Creates a new collection of journeys from database connection.
-		 * 
-		 * @param db The database connection used to get the journey data.
-		 */
-		public DatabaseJourneys(java.sql.Connection db) {
-			this.journeysDB = db;
-		}
-
-		@Override
-		public boolean addJourney(Journey journey) throws IllegalArgumentException {
-			// TODO Auto-generated method stub
-			return false;
-		}
-
-		@Override
-		public Journey getJourney(int index) {
-			// TODO Auto-generated method stub
-			return null;
-		}
-
-	}
-
-	/**
-	 * The CSV Document implementation of the journeys.
-	 * 
-	 * @author Antti Kautiainen
-	 *
-	 */
-	public static class CSVJourneys extends Journeys implements Logging.MessageLogging {
-		/**
-		 * The CSV document storing the journeys.
-		 */
-		private CSVDocument journeysCSV = null;
-
-		public CSVJourneys() throws CSVException {
-			journeysCSV = new SimpleCSVDocument();
-			initFields();
-		}
-
-		public void initFields() throws IllegalStateException, CSVException {
-			journeysCSV.setFields(getJourneyPropertyNames());
-		}
-
-		@Override
-		public boolean addJourney(Journey journey) throws IllegalArgumentException {
-			if (journey == null) {
-				// Undefined journey cannot be added to journeys.
-				return false;
+			switch (property) {
+			case "duration":
+			case "distance":
+				if ((Integer) value < 0) {
+					// Negative duration or distance.
+					return false;
+				}
+			case "end.date":
+				if (value == null)
+					return true;
+				Date startDate = (Date) this.getProperty("start.date");
+				try {
+					if (startDate == null || startDate.compareTo((Date) value) > 0) {
+						// End requires start time exists, and no time travel happens.
+						return false;
+					}
+				} catch (ClassCastException cce) {
+					return false;
+				}
+				break;
 			}
-			try {
-				return journeysCSV.addDataRow(journey == null ? (List<String>) null
-						: (getJourneyPropertyNames().stream().map((String property) -> {
-							return String.valueOf(journey.getProperty(property));
-						})).toList());
-			} catch (CSVException e) {
-				// This happen if the row is null
-				severe("CSV Error {0} which should never happen", e);
-				throw new IllegalArgumentException("Invalid journey", e);
-			}
+			return true;
 		}
-
-		@Override
-		public Journey getJourney(int index) {
-			CSVDataRow data = journeysCSV.getDataRow(index);
-			if (data == null) {
-				return null;
-			} else {
-				Journey result = new Journey();
-
-				return result;
-			}
-		}
-
 	}
 
 	/**
 	 * The property names of the journeys.
 	 * 
-	 * @return The list of properties of the journeys.
+	 * @return The list of properties of the journeys collection.
 	 */
 	public List<String> getPropertyNames() {
 		return Arrays.asList("journeys.count");
 	}
-	
+
+	/**
+	 * The integer valued property names of journeys.
+	 * 
+	 * @return The list of properties of the journeys collection with integer value.
+	 */
+	public List<String> getIntegerPropertyNames() {
+		return Arrays.asList("journeys.count");
+	}
+
 	/**
 	 * Creates a new empty journeys structure.
 	 */
@@ -431,13 +380,72 @@ public abstract class Journeys implements Logging.MessageLogging {
 	 * @return The list of properties of the contained journeys.
 	 */
 	public List<String> getJourneyPropertyNames() {
-		return Journey.getPropertyNames();
+		return Arrays.asList("id", "start.time", "end.time", "start.location.id", "end.location.id",
+				"start.location.name", "end.location.name", "distance", "duraction");
+	}
+
+	/**
+	 * The property names of the date valued properties.
+	 * 
+	 * @return The list of properties with date value.
+	 */
+	public List<String> getJourneyDateProperties() {
+		return Arrays.asList("start.time", "end.time");
+	}
+
+	/**
+	 * The property names of the integer valued properties.
+	 * 
+	 * @return The list of properties with integer value.
+	 */
+	public List<String> getJourneyIntegerProperties() {
+		return Arrays.asList("id", "start.location.id", "end.location.id", "distance", "duration");
+	}
+
+	/**
+	 * The property names of the string valued properties.
+	 * 
+	 * @return The list of properties with date value.
+	 */
+	public List<String> getJourneyStringProperties() {
+		return Arrays.asList("start.location.id", "end.location.id");
+	}
+
+	/**
+	 * Do the property has date value.
+	 * 
+	 * @param property The tested property.
+	 * @return True, if and only if the given property has date value.
+	 */
+	public boolean isDateProperty(String property) {
+		return property != null && this.getJourneyDateProperties().contains(property);
+	}
+
+	/**
+	 * Do the property has integer value.
+	 * 
+	 * @param property The tested property.
+	 * @return True, if and only if the given property has integer value.
+	 */
+	public boolean isIntegerProperty(String property) {
+		return property != null && this.getJourneyIntegerProperties().contains(property)
+				|| this.getIntegerPropertyNames().contains(property);
+	}
+
+	/**
+	 * Do the property has String value.
+	 * 
+	 * @param property The tested property.
+	 * @return True, if and only if the given property has String value.
+	 */
+	public boolean isStringProperty(String property) {
+		return property != null && this.getJourneyStringProperties().contains(property);
 	}
 
 	/**
 	 * Add a new journey to the journeys.
 	 * 
-	 * @param journey The addded journey.
+	 * @param journey The added journey.
 	 * @return True, if and only if the journey was added.
 	 * @throws IllegalArgumentException The journey was invalid for this journeys
 	 *                                  collection.
@@ -452,4 +460,151 @@ public abstract class Journeys implements Logging.MessageLogging {
 	 *         the journey of the given index.
 	 */
 	public abstract Journey getJourney(int index);
+
+
+	/**
+	 * Generic property search condition. 
+	 * @author Antti Kautiainen
+	 *
+	 * @param <TYPE> The type of the tested value. 
+	 */
+	public static abstract class PropertySearchCondition<TYPE> implements Predicate<TYPE> {
+		/**
+		 * The tested property name. 
+		 */
+		private final String propertyName;
+
+		/**
+		 * The list of conditions the tested object has to pass. If this list is empty, 
+		 * any value passes.  
+		 */
+		private final java.util.List<Predicate<Object>> predicates = new java.util.ArrayList<>();
+
+		/**
+		 * Create a search condition for given property name.
+		 * 
+		 * @param propertyName   The property name.
+		 * @param valuePredicate The value predicate.
+		 */
+		public PropertySearchCondition(String propertyName, Predicate<Object> valuePredicate) {
+			this.propertyName = propertyName;
+			if (valuePredicate != null) {
+				predicates.add(valuePredicate);
+			}
+		}
+
+		/**
+		 * Create a search condition for given property name.
+		 * 
+		 * @param propertyName   The property name.
+		 * @param valuePredicate The value predicate.
+		 */
+		public PropertySearchCondition(String propertyName,
+				java.util.Collection<? extends Predicate<Object>> valuePredicates) {
+			this.propertyName = propertyName;
+			if (valuePredicates != null) {
+				// Adding all non-null values to the predicates.
+				predicates.addAll(valuePredicates.stream().filter((Predicate<Object> pred) -> (pred != null)).toList());
+			}
+		}
+
+		/**
+		 * The property name of the tested property. 
+		 * @return The tested property name. 
+		 */
+		public String getPropertyName() {
+			return this.propertyName; 
+		}
+		
+		/**
+		 * The predicates used to test the property value. 
+		 * @return An unmodifiable list of predicates. 
+		 */
+		public java.util.List<Predicate<Object>> getPredicates() {
+			return java.util.Collections.unmodifiableList(this.predicates); 
+		}
+		
+		/**
+		 * Acquiring the property value of the object. 
+		 * @param object the object. 
+		 * @return The property value of the given object.
+		 */
+		public abstract Object getPropertyValue(TYPE object);
+
+		/**
+		 * Test the journey fitting the current predicate.
+		 */
+		public boolean test(TYPE object) {
+			Object propertyValue = getPropertyValue(object); 
+			return getPredicates().stream()
+					.allMatch((Predicate<Object> tester) -> (tester.test(propertyValue)));
+		}
+
+	}
+	
+	
+	/**
+	 * Journey property search condition. 
+	 * @author Antti Kautiainen
+	 *
+	 */
+	public class JourneyPropertySearchCondition extends PropertySearchCondition<Journeys.Journey> {
+
+		/**
+		 * Creates a new property search condition for journey.
+		 * @param propertyName
+		 * @param predicate
+		 */
+		public JourneyPropertySearchCondition(String propertyName, Predicate<Object> predicate) {
+			super(propertyName, predicate); 
+		}
+		
+		@Override
+		public Object getPropertyValue(Journey object) {
+			return (object == null?null:object.getProperty(this.getPropertyName()));
+		}
+		
+	}
+
+	/**
+	 * The property captions.
+	 */
+	private java.util.Map<String, String> propertyCaptions = new java.util.TreeMap<>();
+
+	/**
+	 * The property captions mapping.
+	 * 
+	 * @return The map storing property captions.
+	 */
+	protected java.util.Map<String, String> getPropertyCaptions() {
+		return this.propertyCaptions;
+	}
+
+	/**
+	 * Set property caption.
+	 * 
+	 * @param propertyName The property name.
+	 * @param caption      The caption. If this value is null, the value is unset.
+	 * @throws IllegalArgumentException The given caption was already reserved by
+	 *                                  another field.
+	 */
+	public void setPropertyCaption(String propertyName, String caption)
+			throws NullPointerException, IllegalArgumentException {
+		if (getPropertyNames().contains(propertyName)) {
+			this.propertyCaptions.put(propertyName, caption);
+		} else {
+			throw new IllegalArgumentException(format("Unknown property name"));
+		}
+	}
+
+	/**
+	 * The caption of the given property.
+	 * 
+	 * @param propertyName The property name.
+	 * @return The caption for the property, if such caption exists. If it does not
+	 *         an undefined (<code>Null</code>) value is returned.
+	 */
+	public String getPropertyCaption(String propertyName) {
+		return propertyCaptions.get(propertyName);
+	}
 }

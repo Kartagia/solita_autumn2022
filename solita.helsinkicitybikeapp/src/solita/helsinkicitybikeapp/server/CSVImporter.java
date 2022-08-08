@@ -20,6 +20,7 @@ import solita.helsinkicitybikeapp.model.Config;
  */
 public class CSVImporter {
 
+	
 	/**
 	 * The main program performing the importing operation. 
 	 * 

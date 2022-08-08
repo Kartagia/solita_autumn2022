@@ -13,9 +13,11 @@ import i18n.Logging;
 import solita.helsinki.citybikeapp.controller.CSVReader.CSVHandler;
 import solita.helsinkicitybikeapp.model.CSVException;
 import solita.helsinkicitybikeapp.model.CSVException.RowType;
+import solita.helsinkicitybikeapp.model.CSVJourneys;
 import solita.helsinkicitybikeapp.model.Config;
 import solita.helsinkicitybikeapp.model.Journeys;
 import solita.helsinkicitybikeapp.model.Journeys.Journey;
+import solita.helsinkicitybikeapp.model.db.DatabaseJourneys;
 
 /**
  * The class loading journeys. 
@@ -26,7 +28,7 @@ import solita.helsinkicitybikeapp.model.Journeys.Journey;
  * @author Antti Kautiainen
  *
  */
-public class JourneysLoader implements Logging.LocalizedMessageLogging {
+public class JourneysLoader implements i18n.Logging.LocalizedMessageLogging {
 
 	
 	
@@ -38,14 +40,27 @@ public class JourneysLoader implements Logging.LocalizedMessageLogging {
 			.compile("^(?:\\u000d\\u00bb\\u00bf)?" + CSVReader.CSV_SIMPLE_DATA_ROW.toString());
 
 	
+	/**
+	 * The storage of the journey data. 
+	 */
 	private Journeys data; 
 	
+	/**
+	 * Get the current journeys structure. 
+	 * @return The journeys structure of the current parse. 
+	 */
 	protected Journeys getJourneys() {
 		return this.data; 
 	}
 	
+	/**
+	 * The reader reading the CVS file. 
+	 */
 	private CSVReader reader = new CSVReader(getCSVHandler(), CSV_HEADER_PATTERN);
 	
+	/**
+	 * The handler handling the CVS rows. 
+	 */
 	private CSVHandler handler = new CSVHandler() {
 
 		private List<String> propertyCaptions = null; 
@@ -55,7 +70,7 @@ public class JourneysLoader implements Logging.LocalizedMessageLogging {
 			// Creating the journey to add.
 			Journeys.Journey entry = (JourneysLoader.this.getJourneys()).new Journey();
 			int index = 0; 
-			for (String property: Journey.getPropertyNames()) {
+			for (String property: JourneysLoader.this.getJourneys().getPropertyNames()) {
 				try {
 					// Assigning the property value
 					entry.setProperty(property, entry.propertyFormatter(property).parseObject(rowFields.get(index))); 
@@ -73,11 +88,16 @@ public class JourneysLoader implements Logging.LocalizedMessageLogging {
 			if (propertyCaptions != null) {
 				throw new CSVException.DuplicateHeaderException(headerFields);
 			}
+			Journeys data = getJourneys(); 
 			if (data.getJourneyPropertyNames().size() != headerFields.size()) {
 				throw new CSVException.InvalidRowException(CSVException.RowType.HEADER, "Invalid field count", headerFields);
 			} 
 			// TODO: Add journey caption support to the Journeys
 			propertyCaptions = headerFields; 
+			List<String> propertyNames = data.getJourneyPropertyNames(); 
+			for (int i=0, len=propertyNames.size(); i < len; i++) {
+				data.setPropertyCaption(propertyNames.get(i), headerFields.get(i)); 
+			}
 		}
 		
 	}; 
@@ -100,7 +120,7 @@ public class JourneysLoader implements Logging.LocalizedMessageLogging {
 	public JourneysLoader(URL source, java.sql.Connection db) throws IOException, java.sql.SQLException {
 		reader = new CSVReader(getCSVHandler(), CSV_HEADER_PATTERN);
 		reader.open(source);
-		data = db == null?new Journeys.CSVJourneys():new Journeys.DatabaseJourneys(db); 
+		data = db == null?new CSVJourneys():new DatabaseJourneys(db); 
 	}
 
 	/**
@@ -113,6 +133,6 @@ public class JourneysLoader implements Logging.LocalizedMessageLogging {
 	public JourneysLoader(File source, java.sql.Connection db) throws IOException, java.sql.SQLException {
 		reader = new CSVReader(getCSVHandler(), CSV_HEADER_PATTERN);
 		reader.open(source);
-		data = db == null?new Journeys.CSVJourneys():new Journeys.DatabaseJourneys(db); 
+		data = db == null?new CSVJourneys():new DatabaseJourneys(db); 
 	}
 }

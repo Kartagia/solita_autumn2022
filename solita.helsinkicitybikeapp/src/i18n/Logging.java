@@ -1,9 +1,9 @@
 package i18n;
 
+import java.util.logging.Logger;
 import java.text.MessageFormat;
 import java.util.Locale;
 import java.util.ResourceBundle;
-import java.util.logging.Logger;
 
 /**
  * Logging objects are able to perform basic logging.
@@ -15,6 +15,7 @@ import java.util.logging.Logger;
  *
  */
 public interface Logging {
+	
 
 	/**
 	 * The localized logging performs localization to the formats.
