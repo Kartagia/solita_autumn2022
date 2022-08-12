@@ -7,6 +7,7 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 import solita.helsinkicitybikeapp.model.Journeys;
 import solita.helsinkicitybikeapp.model.Journeys.Journey;
@@ -14,16 +15,89 @@ import solita.helsinkicitybikeapp.model.Journeys.Journey;
 /**
  * The database using Journeys.
  * 
+ * The current view of the Journeys is given by methods {@linkplain #getJourneysViewName()} to allow
+ * implementation of various ordering views to get the journeys. 
+ * 
+ * 
+ * 
  * @author Antti Kautiainen
  *
  */
 public class DatabaseJourneys extends Journeys {
 
-	public class Journey extends Journeys.Journey {
+	/**
+	 * Database implementation of journeys.
+	 * 
+	 * The journeys does not update database until committed. 
+	 * 
+	 * @author Antti Kautaiinen
+	 *
+	 */
+	public class DBJourney extends Journeys.Journey {
 
-		public Journey(ResultSet dbRow) throws SQLException {
+		public DBJourney() {
 			super();
 		}
+
+		public DBJourney(ResultSet dbRow) throws IllegalArgumentException, SQLException {
+			this();
+			initFromResultSet(dbRow);
+		}
+
+		public boolean initFromResultSet(ResultSet dbRow) throws IllegalArgumentException, SQLException {
+			for (String property : DatabaseJourneys.this.getJourneyIntegerProperties()) {
+				this.setProperty(property, dbRow.getInt(getDBFieldName(property)));
+			}
+			setAltered(false); 
+			return true;
+		}
+
+		/**
+		 * The database field name of the given property.
+		 * 
+		 * @param propertyName The property name.
+		 * @return The database field name, if any exists.
+		 */
+		public String getDBFieldName(String propertyName) {
+			return DatabaseJourneys.this.getFieldName(propertyName);
+		}
+		
+		/**
+		 * Has the content of the journey been updated since last commit, or fetching 
+		 * values for database. 
+		 */
+		private boolean isAltered = false; 
+		
+		/**
+		 * Has the journey been changed from the database state. 
+		 * @return True, only if the journey state has been altered since last udpate. 
+		 */
+		public synchronized boolean isAltered() {
+			return isAltered; 
+		}
+		
+		/**
+		 * Setting the altered state of the journey. 
+		 * @param altered The new altered state. 
+		 */
+		protected synchronized void setAltered(boolean altered) {
+			this.isAltered = altered; 
+		}
+		
+		/**
+		 * Commits the changes to the database. 
+		 * @return Whether the database was updated or not. 
+		 */
+		public synchronized boolean commit() {
+			if (isAltered()) {
+				setAltered(false);
+				return true; 
+			} else {
+				return false; 
+			}
+		}
+		
+		
 	}
 
 	/**
@@ -139,17 +213,19 @@ public class DatabaseJourneys extends Journeys {
 				insertJourneySQLQuery = composeAddJourneySQLQuery();
 			}
 			try {
-				db.beginRequest();
-				db.createStatement().execute("LOCK VIEW journeys IN SHARE ROW EXCLUSIVE MODE");
-				String locationName;
+				String locationName, idProperty, nameProperty;
 				Integer locationId;
 				for (String locationProperty : Arrays.asList("start", "end")) {
-					locationId = (Integer) journey.getProperty(locationProperty + ".location.id");
-					locationName = (String) journey.getProperty(locationProperty + ".location.name");
+					idProperty = locationProperty + ".location.id"; 
+					nameProperty = locationProperty + ".location.name"; 
+					locationId = (Integer) journey.getProperty(idProperty);
+					locationName = (String) journey.getProperty(nameProperty);
 					if (!checkStationName(getLanguage(), locationId, locationName)) {
-						// The station is erroneous. 
+						// The station is erroneous.
 						throw new IllegalArgumentException(
-								this.severe("The location id={0}, name={1} does not exist", locationId, locationName));
+								this.severe("The {0]={1} with {2} {3} does not exist", 
+										idProperty, locationId, 
+										nameProperty, locationName));
 					}
 				}
 
@@ -174,14 +250,13 @@ public class DatabaseJourneys extends Journeys {
 				if (resultSet.next()) {
 					// The operation succeeded.
 					Integer id = resultSet.getInt(1);
-					this.info("Journey {0} added to journeys with id {1}", journey.toString(), journey.getProperty(ID_PROPERTY));
+					this.info("Journey {0} added to journeys with id {1}", journey.toString(),
+							journey.getProperty(ID_PROPERTY));
 					journey.setProperty(ID_PROPERTY, id);
-					db.endRequest();
 					return true;
 				} else {
 					// THe operation failed.
 					this.severe("Could not add journey {0}", journey.toString());
-					db.endRequest();
 					return false;
 				}
 			} catch (SQLException e) {
@@ -268,13 +343,18 @@ public class DatabaseJourneys extends Journeys {
 				ResultSet resultSet = stmt.executeQuery();
 				if (resultSet.next()) {
 					// WE do have result.
-					Journey result = this.new Journey(resultSet);
+					this.addJourney(this.new DBJourney(resultSet));
 				} else {
 					// No such journey exists.
 					return null;
 				}
 			} catch (SQLException e) {
-				this.severe("Getting a journey at row {0} failed due {1}", index, e.getMessage());
+				this.severe("Getting a journey at row {0} failed due SQL Exception {1}", index, e.getMessage());
+				return null; 
+			} catch (Exception e) {
+				this.severe("Getting a journey at row {0} failed due {1} {2}", index, e.getClass().getName(),
+						e.getMessage());
+				return null; 
 			}
 		}
 		// The default is null.
@@ -288,12 +368,12 @@ public class DatabaseJourneys extends Journeys {
 	 * @return The row index of the database for given index.
 	 */
 	protected Integer getRowIdOfIndex(int index) {
-		if (index < 0) {
+		if (index >= 0) {
 			java.sql.Connection db = getConnection();
 			if (db != null) {
 				try {
 					PreparedStatement pstmt = db.prepareStatement(
-							"SELECT row() as row_id, jid FROM journeys ORDER BY departure_time DESC WHERE row_id=?");
+							"SELECT row_id, jid FROM journeys_view ORDER BY departure_time DESC WHERE row_id=?");
 					pstmt.setInt(1, index + 1);
 					ResultSet result = pstmt.executeQuery();
 					if (result.next()) {
@@ -304,7 +384,7 @@ public class DatabaseJourneys extends Journeys {
 				} catch (SQLException e) {
 					// Exception prevented answering the result.
 					this.severe("Fetching jid of row {0} failed due {1}", index, e.getMessage());
-					return null; 
+					return null;
 				}
 			}
 		}
@@ -312,8 +392,158 @@ public class DatabaseJourneys extends Journeys {
 		return null;
 	}
 
-	public Journey getJourneys(int startIndex, int endIndex) {
-		
+	/**
+	 * The names of the journey database query fields.
+	 * 
+	 * @return The list of the database fields returned by the
+	 */
+	public List<String> getJourneyDBFieldNames() {
+		return Arrays.asList("jid", "departure_station_id", "arrival_station_id", "duration", "distance",
+				"depature_time", "arrival_time", "depature_station_name", "arrival_station_name");
+	}
+
+	/**
+	 * The query returning single journey with given index.
+	 * 
+	 * The query will have single parameter, the fetched journey index.
+	 * 
+	 * @return The prepared SQL Query string for fetching single journey by index.
+	 */
+	protected String composeFetchJourneyQuery() {
+		return composeFetchJourneysQuery(1, false);
+	}
+
+	/**
+	 * The query returning multiple journeys.
+	 * 
+	 * The range query will pair indexes into pairs assuming the indexes are start
+	 * and end indexes of ranges. If odd number of indexes is given, the last index
+	 * is treated as range containing only that index.
+	 * 
+	 * The default operator is OR allowing any ranges.
+	 * 
+	 * @param numberOfIndexes The number of indexes the query allows as parameters.
+	 * @param rangeQuery      Do we create range query pairing two consequent
+	 *                        indexes into start and end indexes of the range.
+	 * @return The prepared SQL Query string for fetching multiple journeys.
+	 */
+	protected String composeFetchJourneysQuery(int numberOfIndexes, boolean rangeQuery) {
+		return composeFetchJourneysQuery(numberOfIndexes, rangeQuery, "OR");
+	}
+
+	
+	/**
+	 * The view used to fetch journeys. 
+	 * @return The current view used to fetch journeys. 
+	 */
+	protected String getJourneysViewName() {
+		return "journeys_view"; 
+	}
+	
+	/**
+	 * The query returning multiple journeys.
+	 * 
+	 * The range query will pair indexes into pairs assuming the indexes are start
+	 * and end indexes of ranges. If odd number of indexes is given, the last index
+	 * is treated as range containing only that index.
+	 * 
+	 * The row condition is paired with given operator. 
+	 * 
+	 * @param numberOfIndexes The number of indexes the query allows as parameters.
+	 * @param rangeQuery      Do we create range query pairing two consequent
+	 *                        indexes into start and end indexes of the range.
+	 * @param operator	The operator combining query conditions. 
+	 * @return The prepared SQL Query string for fetching multiple journeys. 
+	 */
+	protected String composeFetchJourneysQuery(int numberOfIndexes, boolean rangeQuery, String operator) {
+		StringBuilder result = new StringBuilder("SELECT * FROM ");
+		result.append(this.getJourneysViewName()); 
+		if (numberOfIndexes > 0) {
+			result.append("WHERE ");
+			String operatorString = " " + operator + " ";
+			int i = 0;
+			if (rangeQuery) {
+				// Composing range query.
+				while (i + 1 < numberOfIndexes) {
+					if (i > 0) {
+						result.append(operatorString);
+					}
+					result.append("(row_id >= ? and row_id < ?)");
+					i += 2;
+				}
+			}
+			// Composing single row query.
+			for (; i < numberOfIndexes; i++) {
+				if (i > 0)
+					result.append(operatorString);
+				result.append("row_id=?");
+			}
+
+		}
+
+		return result.toString();
+	}
+
+	private String fetchJourneysSQLQuery = "SELECT * FROM journeys_view ORDER BY departure_time DESC WHERE row_id>=? AND row_id <?";
+
+	protected String getFetchJourneysSQLQuery() {
+		return this.fetchJourneysSQLQuery;
+	}
+
+	/**
+	 * Fetching continuous range of journeys.
+	 * 
+	 * @param startIndex The first fetched journey.
+	 * @param endIndex   The first index not belonging to the returned journeys.
+	 * @param endIndex   The last fetched journey.
+	 * @return The list containing all journeys within given bounds.
+	 */
+	public List<Journeys.Journey> getJourneys(int startIndex, int endIndex) {
+		if (startIndex >= 0) {
+			java.sql.Connection db = getConnection();
+			if (db != null) {
+				try {
+					PreparedStatement pstmt = db.prepareStatement(getFetchJourneysSQLQuery());
+					pstmt.setInt(1, startIndex + 1);
+					pstmt.setInt(2, endIndex + 1);
+					ResultSet resultSet = pstmt.executeQuery();
+					List<Journeys.Journey> result = new java.util.ArrayList<>();
+					Journeys.Journey journey;
+					while (resultSet.next()) {
+						result.add(this.new DBJourney(resultSet));
+					}
+					return result;
+				} catch (SQLException e) {
+					// Exception prevented answering the result.
+					this.severe("Fetching jid of row {0} failed due {1}", index, e.getMessage());
+					return null;
+				}
+			}
+		}
+		// The default is null.
+		return null;
+
+	}
+
+	/**
+	 * Handling SQL exception.
+	 * 
+	 * @param exception	The handled exception.
+	 * @throws E Throws the exception unless it is handled. 
+	 */
+	public void handleException(SQLException exception) throws SQLException {
+		throw exception; 
+	}
+
+	/**
+	 * Handling exception.
+	 * 
+	 * @param <E>       The type of the exception.
+	 * @param exception	The handled exception.
+	 * @throws E Throws the exception unless it is handled. 
+	 */
+	public <E extends Throwable> void handleException(E exception) throws E {
+		throw exception; 
 	}
 
 }
