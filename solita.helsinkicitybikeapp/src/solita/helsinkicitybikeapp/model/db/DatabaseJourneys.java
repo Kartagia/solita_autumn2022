@@ -515,7 +515,7 @@ public class DatabaseJourneys extends Journeys {
 					return result;
 				} catch (SQLException e) {
 					// Exception prevented answering the result.
-					this.severe("Fetching jid of row {0} failed due {1}", index, e.getMessage());
+					this.severe("Fetching jid of rows from {0} to {1} failed due {2}", startIndex, endIndex, e.getMessage());
 					return null;
 				}
 			}

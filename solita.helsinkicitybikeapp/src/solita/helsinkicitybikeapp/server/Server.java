@@ -11,6 +11,12 @@ import solita.helsinkicitybikeapp.model.Config;
  */
 public class Server extends Thread {
 
+	/**
+	 * The servlet performing the generation of HTML user interface for the server. 
+	 * 
+	 * @author Antti Kautiainen
+	 *
+	 */
 	public static class Servlet extends javax.servlet.http.HttpServlet {
 		
 	}
