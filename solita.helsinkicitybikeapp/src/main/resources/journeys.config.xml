@@ -1,0 +1,39 @@
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+<comment>Example properties file for City Bike App configuragion</comment>
+
+<!-- Each property value contains the default value as an example, and the user 
+should replace the default values with the intended values. -->
+
+<!-- GROUP: The fields for redirecting the configuration to another directory -->
+<!-- The directory into which the journeys configuration is stored. 
+ 
+This value has to be either relative to the working directory, or absolute path. 
+The path does substitute starting tilde (~) into the user home directory. 
+-->
+<entry key="journeys.basedir">~/.journeys</entry>
+
+<!-- The configuration properties XML file, which is read after this file.
+The directives of thsi file supercedes the properties of this file. -->
+<entry key="journeys.config.xml">journeys.properties.xml</entry>
+
+<!-- GROUP: The server properties -->
+<!-- The port server listens -->
+<entry key="journeys.server.port">3303</entry>
+<!-- The hostname the server listens -->
+<entry key="journeys.server.host">localhost</entry>
+
+<!-- GROUP: Database connection -->
+<!-- The default database protocol name. This is usually the database management system name. 
+If custom DBMS is used, the Database drivers has to be available for JRE. -->
+<entry key="journeys.db.protocol">postgres</entry>
+<!-- The default database user used for the connection -->
+<entry key="journeys.db.user">solitacitybike</entry>
+<!-- The default passwrod used to connect the database -->
+<entry key="journeys.db.password">solitacitybike</entry>
+<!-- The default database host name -->
+<entry key="journeys.db.host">locahost</entry>
+<!-- The default dtabase port -->
+<entry key="journeys.db.port">5432</entry>
+
+</properties>
