@@ -17,6 +17,7 @@ import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import i18n.Logging;
 import solita.helsinkicitybikeapp.model.CSVDocument;
 import solita.helsinkicitybikeapp.model.CSVException;
 import solita.helsinkicitybikeapp.model.SimpleCSVDocument;
@@ -109,13 +110,55 @@ public class CSVReader {
 		this.in = null;
 	}
 
+	/** Interface for handling of exceptions. 
+	 * 
+	 * @author Antti Kautiainen
+	 *
+	 */
+	public static interface ErrorHandler {
+		
+
+		/**
+		 * Handles the exceptions during parsing.
+		 * 
+		 * @param <E>       The handled exception type.
+		 * @param exception The handled exception.
+		 * @throws E The possibly thrown exception.
+		 */
+		default <E extends Exception> void handleException(E exception) throws E {
+			throw exception;
+		}
+	}
+	
+	/**
+	 * Reports errors to the log instead of throwing exception. 
+	 * @author Antti Kautiainen
+	 *
+	 */
+	public static class ErrorReporter implements ErrorHandler {
+		
+		private i18n.Logging logger; 
+		
+		public ErrorReporter() {
+			
+		}
+		
+		public ErrorReporter(Logging logger) {
+			this.logger = logger; 
+		}
+				
+		public <E extends Exception> void handleException(E exception) throws E {
+			logger.severe("Exception {0}: {1}", exception.getClass().getName(), exception.getMessage());
+		}
+	}
+	
 	/**
 	 * Interface for handling the addition of CSV rows.
 	 * 
 	 * @author Antti Kautiainen
 	 *
 	 */
-	public static interface CSVHandler {
+	public static interface CSVHandler extends ErrorHandler {
 		/**
 		 * Handles a data row.
 		 * 
@@ -135,19 +178,70 @@ public class CSVReader {
 		 * @throws CSVException TODO
 		 */
 		public void handleHeaders(java.util.List<String> headerFields) throws CSVException;
-
-		/**
-		 * Handles the errors during parsing.
-		 * 
-		 * @param <E>       The handled exception type.
-		 * @param exception The handled exception.
-		 * @throws E The possibly thrown exception.
-		 */
-		default <E extends Exception> void handleError(E exception) throws E {
-			throw exception;
-		}
 	}
 
+	/**
+	 * The implementation of the CSV handler with specific error handler handling 
+	 * errors. 
+	 * @author Antti Kautiainen 
+	 *
+	 */
+	public static class ErrorHandlingCSVHandler implements CSVHandler {
+		
+		@Override
+		public void handleRow(List<String> rowFields) throws CSVException {
+			try {
+				this.rowHandler.handleRow(rowFields);
+			} catch(CSVException csve) {
+				this.handleException(csve);
+			}
+		}
+
+
+
+
+		@Override
+		public void handleHeaders(List<String> headerFields) throws CSVException {
+			try {
+				this.rowHandler.handleHeaders(headerFields);
+			} catch(CSVException csve) {
+				this.handleException(csve);
+			}
+		}
+
+
+
+		/** The handler handling rows. 
+		 * 
+		 */
+		private final CSVHandler rowHandler; 
+		
+		/**
+		 * The handler handling errors.
+		 */
+		private final ErrorHandler errorHandler; 
+		
+		/**
+		 * Creates a new error handling CSV handler with given error handler. 
+		 * @param rowHandler The handler of the rows. 
+		 * @param errorHandler The error handler handling errors. 
+		 */
+		public ErrorHandlingCSVHandler(CSVHandler rowHandler, ErrorHandler errorHandler) {
+			this.rowHandler = rowHandler; 
+			this.errorHandler = errorHandler; 
+		}
+		
+		
+		
+		
+		@Override
+		public <E extends Exception> void handleException(E exception) throws E  {
+			errorHandler.handleException(exception); 
+		}
+		
+		
+	}
+	
 	/**
 	 * Simple handler which handles rows, but does not store anything.
 	 * 
@@ -190,6 +284,7 @@ public class CSVReader {
 				throw new CSVException.InvalidRowException(CSVException.RowType.HEADER, "Invalid header", headerFields);
 			}
 		}
+		
 
 	}
 
@@ -201,22 +296,37 @@ public class CSVReader {
 	 * @throws IOException          the URL could not be read.
 	 */
 	public void open(URL url) throws IOException {
-		this.in = url.openStream();
-		setSource(this.in);
+		this.open(url.openStream());
 	}
 
 	/**
 	 * Opens the given file for reading CSV content.
 	 * 
-	 * @param file
-	 * @throws IOException
+	 * @param file The file containing the resource. 
+	 * @throws IOException The operation fails due Input/Output exception
+	 * @throws IllegalArgumentException The given file was invalid. 
 	 */
+	@SuppressWarnings("resource") // The warning is not necessary as open will store the stream or stream was null
 	public void open(File file) throws IOException, IllegalArgumentException {
-		if (file.isFile() || file.canRead()) {
-			this.in = new FileInputStream(file);
-			setSource(in);
+		if (file.isFile() && file.canRead()) {
+			this.open(new FileInputStream(file));
 		} else {
 			throw new IllegalArgumentException("Not a readable normal file");
+		}
+	}
+	
+	/**
+	 * Opens the given stream for CSV content. 
+	 * @param stream The input stream from which the CSV content is read. 
+	 * @throws IOException The operation failed due Input/Output Exception. 
+	 * @throws IllegalArgumentException THe operation failed due illegal stream. 
+	 */
+	public void open(java.io.InputStream stream) throws IOException, IllegalArgumentException {
+		if (stream == null) {
+			throw new IllegalArgumentException("Input stream has to be defined!"); 
+		} else {
+			this.in = stream; 
+			setSource(in); 
 		}
 	}
 
@@ -290,9 +400,9 @@ public class CSVReader {
 	 * @param exception The handled exception.
 	 * @throws E The exception is possibly thrown.
 	 */
-	public <E extends Exception> void handleError(E exception) throws E {
+	public <E extends Exception> void handleException(E exception) throws E {
 		if (this.handler != null) {
-			this.handler.handleError(exception);
+			this.handler.handleException(exception);
 		} else {
 			throw exception;
 		}
@@ -579,6 +689,17 @@ public class CSVReader {
 	}
 
 	/**
+	 * Reads all rows of the current open CSV source. 
+	 * @return True if, and only if the reading succeeded. 
+	 * @throws CSVException The reading failed due CSV exception. 
+	 * @throws IOException The reading failed due Input/Output exception. 
+	 * @throws ParseException The reading failed due parse exception. 
+	 */
+	public boolean readAll()  throws CSVException, IOException, ParseException {
+		return readAll(this.getHandler()); 
+	}
+	
+	/**
 	 * Reads all rows of the currently open CSV source. 
 	 * @param handler The handler handling read rows. 
 	 * @return True, if and only if the reading succeeded. 
@@ -592,11 +713,11 @@ public class CSVReader {
 			try {
 				headerRow = this.readHeaderRow();
 			} catch (IllegalStateException e) {
-				handler.handleError(e);
+				handler.handleException(e);
 			} catch(IOException ioe) {
-				handler.handleError(ioe);
+				handler.handleException(ioe);
 			} catch (ParseException pe) {
-				handler.handleError(pe);
+				handler.handleException(pe);
 			}
 			if (headerRow == null) {
 				throw new CSVException.EmptyRowException(CSVException.RowType.HEADER, "Empty header row", null);
@@ -609,9 +730,9 @@ public class CSVReader {
 				try {
 					handler.handleRow(dataRow);
 				} catch (IllegalStateException e) {
-					handler.handleError(e);
+					handler.handleException(e);
 				} catch(CSVException csve) {
-					handler.handleError(csve);
+					handler.handleException(csve);
 				}
 			}
 		}

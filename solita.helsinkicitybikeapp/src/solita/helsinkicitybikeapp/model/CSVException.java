@@ -11,6 +11,60 @@ import java.util.List;
 public class CSVException extends RuntimeException {
 
 	/**
+	 * Row exception linked to the data rows. 
+	 * 
+	 * @author Antti Kautiainen 
+	 *
+	 */
+	public static class DataRowException extends CSVException.InvalidRowException {
+		/**
+		 * Create a new data row exception. 
+		 * @param message The message of the exception. 
+		 * @param rowFields The invalid row fields. 
+		 */
+		public DataRowException(List<String> rowFields, String message) {
+			this(message, rowFields, null); 
+		}
+		
+		/**
+		 * Create a new data row exception with cause. 
+		 * @param message The message of the exception. 
+		 * @param rowFields The invalid row fields. 
+		 * @param cause The cause of the exception. 
+		 */
+		public DataRowException(String message, List<String> rowFields, Throwable cause) {
+			super(RowType.HEADER, message, rowFields, cause);
+		}
+	}
+
+	/**
+	 * Row exception linked to the header rows. 
+	 * 
+	 * @author Antti Kautiainen 
+	 *
+	 */
+	public static class HeaderException extends CSVException.InvalidRowException {
+		/**
+		 * Create a new header row exception. 
+		 * @param message The message of the exception. 
+		 * @param rowFields The invalid row fields. 
+		 */
+		public HeaderException(String message, List<String> rowFields) {
+			this(message, rowFields, null); 
+		}
+		
+		/**
+		 * Create a new header row exception with cause. 
+		 * @param message The message of the exception. 
+		 * @param rowFields The invalid row fields. 
+		 * @param cause The cause of the exception. 
+		 */
+		public HeaderException(String message, List<String> rowFields, Throwable cause) {
+			super(RowType.HEADER, message, rowFields, cause);
+		}
+	}
+	
+	/**
 	 * The exception caused by an attempt to give second header for same CSV
 	 * document.
 	 * 
@@ -19,7 +73,7 @@ public class CSVException extends RuntimeException {
 	 * @author Antti Kautiainen
 	 *
 	 */
-	public static class DuplicateHeaderException extends CSVException.InvalidRowException {
+	public static class DuplicateHeaderException extends CSVException.HeaderException {
 		/**
 		 * The message of the duplicate header.
 		 */
@@ -33,18 +87,17 @@ public class CSVException extends RuntimeException {
 		 * @param row The row causing the problem.
 		 */
 		public DuplicateHeaderException(List<String> row) {
-			this(row, DUPLICATE_HEADER_MESSAGE);
+			this(DUPLICATE_HEADER_MESSAGE, row);
 		}
 
 		/**
 		 * Create a new duplicate header exception caused with a message caused by given
 		 * row.
-		 * 
-		 * @param row     The row causing the problem.
 		 * @param message THe message of the exception.
+		 * @param row     The row causing the problem.
 		 */
-		public DuplicateHeaderException(List<String> row, String message) {
-			super(RowType.HEADER, message, row, null);
+		public DuplicateHeaderException(String message, List<String> row) {
+			super(message, row);
 		}
 	}
 
@@ -90,8 +143,7 @@ public class CSVException extends RuntimeException {
 		}
 
 		/**
-		 * Create a new empty data row exception for row of a specified type with given
-		 * message and cuase.
+		 * Create a new empty data row exception with given message and cause. 
 		 * 
 		 * @param type    The type of the row causing the problem.
 		 * @param message The message of the row.
@@ -102,8 +154,7 @@ public class CSVException extends RuntimeException {
 		}
 
 		/**
-		 * Create a new empty data row exception with given row cuasing the probelm
-		 * using defualt message.
+		 * Create a new empty data row exception with default message. 
 		 * 
 		 * The value of the row determines the cause:
 		 * <dl>
@@ -123,6 +174,13 @@ public class CSVException extends RuntimeException {
 					: new IllegalArgumentException(ILLEGAL_ROW_MESSAGE));
 		}
 
+		/**
+		 * Create a new empty row exception with specified message and cause. 
+		 * @param type The type of the erroneous row. 
+		 * @param message The message of the exception. 
+		 * @param row The invalid row causing the exception. 
+		 * @param cause The cause of the exception. 
+		 */
 		public EmptyRowException(CSVException.RowType type, String message, List<String> row, Throwable cause) {
 			super(type, message, row, cause);
 		}
@@ -145,12 +203,26 @@ public class CSVException extends RuntimeException {
 	 *
 	 */
 	public static class InvalidRowException extends CSVException {
+		/**
+		 * Creates a new invalid row exception with given message, and cause. 
+		 * @param type The type of the erroneous row. 
+		 * @param message The message of the exception. 
+		 * @param row The invalid row causing the exception. 
+		 * @param cause The cause of the exception. 
+		 */
 		public InvalidRowException(CSVException.RowType type, String message, List<String> row, Throwable cause) {
 			super(message, cause);
 			this.rowType = type;
 			this.row = row;
 		}
 
+		/**
+		 * Create a new row exception with given message and cause. 
+		 * 
+		 * @param type    The type of the row causing the problem.
+		 * @param message The message of the row.
+		 * @param cause   The cause of the row.
+		 */
 		public InvalidRowException(CSVException.RowType type, String message, List<String> row) {
 			this(type, message, row, null);
 		}
@@ -160,6 +232,9 @@ public class CSVException extends RuntimeException {
 		 */
 		public final CSVException.RowType rowType;
 
+		/**
+		 * The row causing the problem. Changes on this row will change the invalid row. 
+		 */
 		public final List<String> row;
 
 	}

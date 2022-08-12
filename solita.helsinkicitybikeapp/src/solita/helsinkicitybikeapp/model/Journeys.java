@@ -30,6 +30,50 @@ import i18n.Logging;
 public abstract class Journeys implements Logging.MessageLogging {
 
 	/**
+	 * The identifier property name. 
+	 */
+	public static final String ID_PROPERTY = "id";
+	
+	/**
+	 * The duration property name. 
+	 */
+	public static final String DURATION_PROPERTY = "duration";
+	
+	/**
+	 * The distance property name. 
+	 */
+	public static final String DISTANCE_PROPERTY = "distance";
+	/**
+	 * The end location property name. 
+	 */
+	public static final String END_LOCATION_NAME_PROPERTY = "end.location.name";
+	
+	/**
+	 * The start location property name. 
+	 */
+	public static final String START_LOCATION_NAME_PROPERTY = "start.location.name";
+	
+	/**
+	 * The end location identifier property name. 
+	 */
+	public static final String END_LOCATION_ID_PROPERTY = "end.location.id";
+	
+	/**
+	 * The start location identifier property name. 
+	 */
+	public static final String START_LOCATION_ID_PROPERTY = "start.location.id";
+	
+	/**
+	 * The end time property name. 
+	 */
+	public static final String END_TIME_PROPERTY = "end.time";
+	
+	/**
+	 * The start time property name. 
+	 */
+	public static final String START_TIME_PROPERTY = "start.time";
+
+	/**
 	 * The format of the journey date formats.
 	 * 
 	 * @author Antti Kautiainen
@@ -327,7 +371,7 @@ public abstract class Journeys implements Logging.MessageLogging {
 			}
 			switch (property) {
 			case "duration":
-			case "distance":
+			case Journeys.DISTANCE_PROPERTY:
 				if ((Integer) value < 0) {
 					// Negative duration or distance.
 					return false;
@@ -380,8 +424,11 @@ public abstract class Journeys implements Logging.MessageLogging {
 	 * @return The list of properties of the contained journeys.
 	 */
 	public List<String> getJourneyPropertyNames() {
-		return Arrays.asList("id", "start.time", "end.time", "start.location.id", "end.location.id",
-				"start.location.name", "end.location.name", "distance", "duraction");
+		return Arrays.asList(Journeys.ID_PROPERTY, 
+				Journeys.START_TIME_PROPERTY, Journeys.END_TIME_PROPERTY, 
+				Journeys.START_LOCATION_ID_PROPERTY, Journeys.END_LOCATION_ID_PROPERTY,
+				Journeys.START_LOCATION_NAME_PROPERTY, Journeys.END_LOCATION_NAME_PROPERTY, 
+				Journeys.DISTANCE_PROPERTY, Journeys.DURATION_PROPERTY);
 	}
 
 	/**
@@ -390,7 +437,7 @@ public abstract class Journeys implements Logging.MessageLogging {
 	 * @return The list of properties with date value.
 	 */
 	public List<String> getJourneyDateProperties() {
-		return Arrays.asList("start.time", "end.time");
+		return Arrays.asList(Journeys.START_TIME_PROPERTY, Journeys.END_TIME_PROPERTY);
 	}
 
 	/**
@@ -399,7 +446,8 @@ public abstract class Journeys implements Logging.MessageLogging {
 	 * @return The list of properties with integer value.
 	 */
 	public List<String> getJourneyIntegerProperties() {
-		return Arrays.asList("id", "start.location.id", "end.location.id", "distance", "duration");
+		return Arrays.asList(Journeys.ID_PROPERTY, Journeys.START_LOCATION_ID_PROPERTY, 
+				Journeys.END_LOCATION_ID_PROPERTY, Journeys.DISTANCE_PROPERTY, DURATION_PROPERTY);
 	}
 
 	/**
@@ -408,7 +456,7 @@ public abstract class Journeys implements Logging.MessageLogging {
 	 * @return The list of properties with date value.
 	 */
 	public List<String> getJourneyStringProperties() {
-		return Arrays.asList("start.location.id", "end.location.id");
+		return Arrays.asList(Journeys.START_LOCATION_ID_PROPERTY, Journeys.END_LOCATION_ID_PROPERTY);
 	}
 
 	/**

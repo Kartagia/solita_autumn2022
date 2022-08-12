@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.sql.Connection;
+import java.text.ParseException;
 import java.util.List;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -81,6 +82,7 @@ public class JourneysLoader implements i18n.Logging.LocalizedMessageLogging {
 				}
 				index++; 
 			}
+			JourneysLoader.this.getJourneys().addJourney(entry); 
 		}
 
 		@Override
@@ -112,6 +114,19 @@ public class JourneysLoader implements i18n.Logging.LocalizedMessageLogging {
 	
 	/**
 	 * Create Journeys CSV file loader from given source file. 
+	 * @param source THe source stream of CSV. 
+	 * @param db The database connection to store the journeys. 
+	 * @throws IOException The opening of the source content failed. 
+	 * @throws java.sql.SQLException The database connection failed. 
+	 */
+	public JourneysLoader(java.io.InputStream source, java.sql.Connection db) throws IOException, java.sql.SQLException {
+		reader = new CSVReader(getCSVHandler(), CSV_HEADER_PATTERN);
+		reader.open(source);
+		data = db == null?new CSVJourneys():new DatabaseJourneys(db); 
+	}
+	
+	/**
+	 * Create Journeys CSV file loader from given source file. 
 	 * @param source THe source URL. 
 	 * @param db The database connection to store the journeys. 
 	 * @throws IOException The opening of the source content failed. 
@@ -134,5 +149,19 @@ public class JourneysLoader implements i18n.Logging.LocalizedMessageLogging {
 		reader = new CSVReader(getCSVHandler(), CSV_HEADER_PATTERN);
 		reader.open(source);
 		data = db == null?new CSVJourneys():new DatabaseJourneys(db); 
+	}
+	
+	/**
+	 * Reads all journeys from the journey reader. 
+	 * @return True, if and only if the reading succeeded. 
+	 */
+	public boolean readAll() {
+		try {
+			// Reading all rows of the read file. 
+			return reader.readAll();
+		} catch (CSVException | IOException | ParseException e) {
+			// The reading failed. 
+			return false; 
+		} 
 	}
 }
