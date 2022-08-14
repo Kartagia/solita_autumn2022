@@ -6,10 +6,16 @@ Configuration:
 ==============
 The basic configuration file "joyrneys.config.xml" is stored on the working 
 directory, or if it is absent in the directory ".journeys" of the user home, if 
-the configuration file does not exist at the working directory. 
+the configuration file does not exist at the working directory.
 
-The location of the  configuration file can be given with runtime property "journeys.init.xml".  
+Configuration file is an XML Properties file containing properties of the project. 
+
+The configuration file, or its properties, can be given with java command line properties. 
+
+An alternate configuration file can be given with runtime property "journeys.init.xml".
+  
 
 Execution: 
 ===============
 The program can be run with java command executing the jar file. 
+

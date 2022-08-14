@@ -9,7 +9,9 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.URL;
 import java.text.ParseException;
-import java.util.*;
+import java.util.Scanner;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Function;
 import java.util.function.IntConsumer;
 import java.util.function.IntFunction;
@@ -45,48 +47,47 @@ public class CSVReader {
 	/**
 	 * Does the reader require header from CSV files.
 	 * 
-	 * By default the reader does not require header row. 
+	 * By default the reader does not require header row.
 	 */
-	private boolean requiresHeader = false; 
-	
+	private boolean requiresHeader = false;
+
 	/**
-	 * Does the reader require header from CSV files. 
-	 * @return True, if and only if the first row of the CSV file is assumed
-	 *  to contain header. 
+	 * Does the reader require header from CSV files.
+	 * 
+	 * @return True, if and only if the first row of the CSV file is assumed to
+	 *         contain header.
 	 */
 	public boolean requiresHeader() {
-		return this.requiresHeader; 
+		return this.requiresHeader;
 	}
-	
+
 	/**
-	 * Creates a new CSV reader which may have header row. 
+	 * Creates a new CSV reader which may have header row.
 	 * 
-	 * If the reader does not require header row, no header row is 
-	 * read. 
+	 * If the reader does not require header row, no header row is read.
 	 * 
-	 * @param requireHeader Does the reader require header row. 
+	 * @param requireHeader Does the reader require header row.
 	 */
 	public CSVReader(boolean requireHeader) {
-		this.requiresHeader = requireHeader; 
+		this.requiresHeader = requireHeader;
 	}
-	
+
 	/**
-	 * Creates a new CSV reader using given handler and header pattern. 
-	 * @param handler The handler performing the handling of the CSV rows. 
-	 * @param headerPattern The pattern handling the header row. If this
-	 *  value is undefined (<code>null</code>), the reader would not require
-	 *  header row.
+	 * Creates a new CSV reader using given handler and header pattern.
+	 * 
+	 * @param handler       The handler performing the handling of the CSV rows.
+	 * @param headerPattern The pattern handling the header row. If this value is
+	 *                      undefined (<code>null</code>), the reader would not
+	 *                      require header row.
 	 */
 	public CSVReader(CSVHandler handler, Pattern headerPattern) {
-		this(headerPattern != null); 
+		this(headerPattern != null);
 		this.handler = handler;
 		if (headerPattern != null) {
-			this.headerPattern = headerPattern; 
+			this.headerPattern = headerPattern;
 		}
 	}
-	
-	
-	
+
 	/**
 	 * Creates reader for the given URL.
 	 * 
@@ -110,13 +111,13 @@ public class CSVReader {
 		this.in = null;
 	}
 
-	/** Interface for handling of exceptions. 
+	/**
+	 * Interface for handling of exceptions.
 	 * 
 	 * @author Antti Kautiainen
 	 *
 	 */
 	public static interface ErrorHandler {
-		
 
 		/**
 		 * Handles the exceptions during parsing.
@@ -129,29 +130,30 @@ public class CSVReader {
 			throw exception;
 		}
 	}
-	
+
 	/**
-	 * Reports errors to the log instead of throwing exception. 
+	 * Reports errors to the log instead of throwing exception.
+	 * 
 	 * @author Antti Kautiainen
 	 *
 	 */
 	public static class ErrorReporter implements ErrorHandler {
-		
-		private i18n.Logging logger; 
-		
+
+		private i18n.Logging logger;
+
 		public ErrorReporter() {
-			
+
 		}
-		
+
 		public ErrorReporter(Logging logger) {
-			this.logger = logger; 
+			this.logger = logger;
 		}
-				
+
 		public <E extends Exception> void handleException(E exception) throws E {
 			logger.severe("Exception {0}: {1}", exception.getClass().getName(), exception.getMessage());
 		}
 	}
-	
+
 	/**
 	 * Interface for handling the addition of CSV rows.
 	 * 
@@ -167,7 +169,7 @@ public class CSVReader {
 		 * @param rowFields The list of header fields.
 		 * @throws CSVException TODO
 		 */
-		public void handleRow(java.util.List<String> rowFields) throws CSVException;
+		public void handleRow(List<? extends CharSequence> rowFields) throws CSVException;
 
 		/**
 		 * Handles header row. Call of this handled indicates that a new CSV file is
@@ -177,71 +179,65 @@ public class CSVReader {
 		 *                     that the CSV file did not have header row.
 		 * @throws CSVException TODO
 		 */
-		public void handleHeaders(java.util.List<String> headerFields) throws CSVException;
+		public void handleHeaders(List<? extends CharSequence> headerFields) throws CSVException;
 	}
 
 	/**
-	 * The implementation of the CSV handler with specific error handler handling 
-	 * errors. 
-	 * @author Antti Kautiainen 
+	 * The implementation of the CSV handler with specific error handler handling
+	 * errors.
+	 * 
+	 * @author Antti Kautiainen
 	 *
 	 */
 	public static class ErrorHandlingCSVHandler implements CSVHandler {
-		
+
 		@Override
-		public void handleRow(List<String> rowFields) throws CSVException {
+		public void handleRow(List<? extends CharSequence> rowFields) throws CSVException {
 			try {
-				this.rowHandler.handleRow(rowFields);
-			} catch(CSVException csve) {
+				if (this.rowHandler != null) this.rowHandler.handleRow(rowFields);
+			} catch (CSVException csve) {
 				this.handleException(csve);
 			}
 		}
 
-
-
-
 		@Override
-		public void handleHeaders(List<String> headerFields) throws CSVException {
+		public void handleHeaders(List<? extends CharSequence> headerFields) throws CSVException {
 			try {
-				this.rowHandler.handleHeaders(headerFields);
-			} catch(CSVException csve) {
+				if (this.rowHandler != null) this.rowHandler.handleHeaders(headerFields);
+			} catch (CSVException csve) {
 				this.handleException(csve);
 			}
 		}
 
-
-
-		/** The handler handling rows. 
+		/**
+		 * The handler handling rows.
 		 * 
 		 */
-		private final CSVHandler rowHandler; 
-		
+		private final CSVHandler rowHandler;
+
 		/**
 		 * The handler handling errors.
 		 */
-		private final ErrorHandler errorHandler; 
-		
+		private final ErrorHandler errorHandler;
+
 		/**
-		 * Creates a new error handling CSV handler with given error handler. 
-		 * @param rowHandler The handler of the rows. 
-		 * @param errorHandler The error handler handling errors. 
+		 * Creates a new error handling CSV handler with given error handler.
+		 * 
+		 * @param rowHandler   The handler of the rows.
+		 * @param errorHandler The error handler handling errors.
 		 */
 		public ErrorHandlingCSVHandler(CSVHandler rowHandler, ErrorHandler errorHandler) {
-			this.rowHandler = rowHandler; 
-			this.errorHandler = errorHandler; 
+			this.rowHandler = rowHandler;
+			this.errorHandler = errorHandler;
 		}
-		
-		
-		
-		
+
 		@Override
-		public <E extends Exception> void handleException(E exception) throws E  {
-			errorHandler.handleException(exception); 
+		public <E extends Exception> void handleException(E exception) throws E {
+			if (this.errorHandler != null) errorHandler.handleException(exception);
 		}
-		
-		
+
 	}
-	
+
 	/**
 	 * Simple handler which handles rows, but does not store anything.
 	 * 
@@ -253,12 +249,12 @@ public class CSVReader {
 		/**
 		 * The predicate testing the header.
 		 */
-		private final Predicate<? super List<String>> headerTester;
+		private final Predicate<List<? extends CharSequence>> headerTester;
 
 		/**
 		 * The predicate testing the data row.
 		 */
-		private final Predicate<? super List<String>> rowTester;
+		private final Predicate<List<? extends CharSequence>> rowTester;
 
 		/**
 		 * Creates a new tester handler testing each row without storing it.
@@ -266,25 +262,24 @@ public class CSVReader {
 		 * @param headerTester The predicate testing the header rows.
 		 * @param rowTester    The predicate testing the data rows.
 		 */
-		public TesterHandler(Predicate<List<String>> headerTester, Predicate<List<String>> rowTester) {
+		public TesterHandler(Predicate<List<? extends CharSequence>> headerTester, Predicate<List<? extends CharSequence>> rowTester) {
 			this.headerTester = headerTester;
 			this.rowTester = rowTester;
 		}
 
 		@Override
-		public void handleRow(List<String> rowFields) throws CSVException {
+		public void handleRow(List<? extends CharSequence> rowFields) throws CSVException {
 			if (rowTester != null && !rowTester.test(rowFields)) {
 				throw new CSVException.InvalidRowException(CSVException.RowType.DATA, "Invalid data row", rowFields);
 			}
 		}
 
 		@Override
-		public void handleHeaders(List<String> headerFields) throws CSVException {
+		public void handleHeaders(List<? extends CharSequence> headerFields) throws CSVException {
 			if (headerTester != null && !headerTester.test(headerFields)) {
 				throw new CSVException.InvalidRowException(CSVException.RowType.HEADER, "Invalid header", headerFields);
 			}
 		}
-		
 
 	}
 
@@ -302,9 +297,10 @@ public class CSVReader {
 	/**
 	 * Opens the given file for reading CSV content.
 	 * 
-	 * @param file The file containing the resource. 
-	 * @throws IOException The operation fails due Input/Output exception
-	 * @throws IllegalArgumentException The given file was invalid. 
+	 * @param file The file containing the resource.
+	 * @throws IOException              The operation fails due Input/Output
+	 *                                  exception
+	 * @throws IllegalArgumentException The given file was invalid.
 	 */
 	@SuppressWarnings("resource") // The warning is not necessary as open will store the stream or stream was null
 	public void open(File file) throws IOException, IllegalArgumentException {
@@ -314,19 +310,21 @@ public class CSVReader {
 			throw new IllegalArgumentException("Not a readable normal file");
 		}
 	}
-	
+
 	/**
-	 * Opens the given stream for CSV content. 
-	 * @param stream The input stream from which the CSV content is read. 
-	 * @throws IOException The operation failed due Input/Output Exception. 
-	 * @throws IllegalArgumentException THe operation failed due illegal stream. 
+	 * Opens the given stream for CSV content.
+	 * 
+	 * @param stream The input stream from which the CSV content is read.
+	 * @throws IOException              The operation failed due Input/Output
+	 *                                  Exception.
+	 * @throws IllegalArgumentException THe operation failed due illegal stream.
 	 */
 	public void open(java.io.InputStream stream) throws IOException, IllegalArgumentException {
 		if (stream == null) {
-			throw new IllegalArgumentException("Input stream has to be defined!"); 
+			throw new IllegalArgumentException("Input stream has to be defined!");
 		} else {
-			this.in = stream; 
-			setSource(in); 
+			this.in = stream;
+			setSource(in);
 		}
 	}
 
@@ -383,6 +381,22 @@ public class CSVReader {
 	private int lineColumn = 0;
 
 	/**
+	 * The current line number of the parse. 
+	 * @return The current line number of the parse. 
+	 */
+	public int getLineNumber() {
+		return this.lineNumber; 
+	}
+	
+	/**
+	 * The current column number of the parse. 
+	 * @return The current column number of the parse. 
+	 */
+	public int getColumnNumber() {
+		return this.lineColumn;
+	}
+	
+	/**
 	 * Format method to allow localization of formating.
 	 * 
 	 * @param pattern The pattern of formatting.
@@ -392,7 +406,7 @@ public class CSVReader {
 	public String format(String pattern, Object... values) {
 		return String.format(pattern, values);
 	}
-
+	
 	/**
 	 * Handles exception.
 	 * 
@@ -401,8 +415,9 @@ public class CSVReader {
 	 * @throws E The exception is possibly thrown.
 	 */
 	public <E extends Exception> void handleException(E exception) throws E {
-		if (this.handler != null) {
-			this.handler.handleException(exception);
+		CSVHandler handler = this.getHandler();
+		if (handler != null) {
+			handler.handleException(exception);
 		} else {
 			throw exception;
 		}
@@ -453,17 +468,18 @@ public class CSVReader {
 			"(?:" + String.join("|", (new String[] { ESCAPED_REGEX_STRING, UNESCAPED_FIELD_REGEX_STRING })) + ")");
 
 	/**
-	 * The regular expression matching to a simple row. 
-	 * The pattern will have two matching groups: the first field and the last field, if there was more than one field. 
-	 * (Simple row does not allow CRLF combination within quotes)
+	 * The regular expression matching to a simple row. The pattern will have two
+	 * matching groups: the first field and the last field, if there was more than
+	 * one field. (Simple row does not allow CRLF combination within quotes)
 	 */
 	public static final Pattern CSV_SIMPLE_DATA_ROW = Pattern.compile("^\\s*(" + FIELD_REGEX.toString() + ")(?:"
-			+ CSV_DELIMITER_PATTERN.toString() + "("+ FIELD_REGEX.toString() + ")"+ ")*\\s*$");
+			+ CSV_DELIMITER_PATTERN.toString() + "(" + FIELD_REGEX.toString() + ")" + ")*\\s*$");
 
 	/**
 	 * The regular expression matching the next field of the row.
 	 * 
-	 * The pattern ahs two capturing groups: The raw field value, and the delimiter following the field. 
+	 * The pattern ahs two capturing groups: The raw field value, and the delimiter
+	 * following the field.
 	 */
 	public static final Pattern CSV_NEXT_FIELD_REGEX = Pattern
 			.compile("(" + FIELD_REGEX.toString() + ")" + "(" + CSV_DELIMITER_PATTERN.toString() + "|$" + ")");
@@ -489,21 +505,20 @@ public class CSVReader {
 	}
 
 	/**
-	 * The pattern of the header row. By default it is just a data row. 
+	 * The pattern of the header row. By default it is just a data row.
 	 */
-	private Pattern headerPattern = CSVReader.CSV_HEADER_PATTERN; 
+	private Pattern headerPattern = CSVReader.CSV_HEADER_PATTERN;
 
-	
 	/**
-	 * The pattern matching header row. 
+	 * The pattern matching header row.
 	 * 
-	 * @return The pattern matching data row. The pattern will have two groups: 
-	 * 	
+	 * @return The pattern matching data row. The pattern will have two groups:
+	 * 
 	 */
 	public Pattern headerRowPattern() {
-		return headerPattern;  
+		return headerPattern;
 	}
-	
+
 	/**
 	 * The pattern matching simple data row. The simple data row does not allow line
 	 * breaks within the quoted values.
@@ -527,7 +542,7 @@ public class CSVReader {
 	}
 
 	/**
-	 * The class representing parse result. 
+	 * The class representing parse result.
 	 * 
 	 * @author Antti Kautiainen
 	 *
@@ -689,23 +704,26 @@ public class CSVReader {
 	}
 
 	/**
-	 * Reads all rows of the current open CSV source. 
-	 * @return True if, and only if the reading succeeded. 
-	 * @throws CSVException The reading failed due CSV exception. 
-	 * @throws IOException The reading failed due Input/Output exception. 
-	 * @throws ParseException The reading failed due parse exception. 
+	 * Reads all rows of the current open CSV source.
+	 * 
+	 * @return True if, and only if the reading succeeded.
+	 * @throws CSVException   The reading failed due CSV exception.
+	 * @throws IOException    The reading failed due Input/Output exception.
+	 * @throws ParseException The reading failed due parse exception.
 	 */
-	public boolean readAll()  throws CSVException, IOException, ParseException {
-		return readAll(this.getHandler()); 
+	public boolean readAll() throws CSVException, IOException, ParseException {
+		return readAll(this.getHandler());
 	}
-	
+
 	/**
-	 * Reads all rows of the currently open CSV source. 
-	 * @param handler The handler handling read rows. 
-	 * @return True, if and only if the reading succeeded. 
-	 * @throws CSVException The reading failed due CSV exception. 
-	 * @throws IOException The reading failed due Input/Output error. 
-	 * @throws ParseException The reading failed due invalid content. 
+	 * Reads all rows of the currently open CSV source.
+	 * 
+	 * @param handler The handler handling read rows.
+	 * @return True, if and only if the reading succeeded.
+	 * @throws CSVException         The reading failed due CSV exception.
+	 * @throws IOException          The reading failed due Input/Output error.
+	 * @throws ParseException       The reading failed due invalid content.
+	 * @throws NullPOinterException The given handler is undefined.
 	 */
 	public boolean readAll(CSVHandler handler) throws CSVException, IOException, ParseException {
 		if (this.requiresHeader()) {
@@ -714,7 +732,7 @@ public class CSVReader {
 				headerRow = this.readHeaderRow();
 			} catch (IllegalStateException e) {
 				handler.handleException(e);
-			} catch(IOException ioe) {
+			} catch (IOException ioe) {
 				handler.handleException(ioe);
 			} catch (ParseException pe) {
 				handler.handleException(pe);
@@ -722,35 +740,34 @@ public class CSVReader {
 			if (headerRow == null) {
 				throw new CSVException.EmptyRowException(CSVException.RowType.HEADER, "Empty header row", null);
 			}
-		} 
+			handler.handleHeaders(headerRow);
+		}
 		try {
-		List<String> dataRow; 
-		while ( (dataRow = this.readDataRow()) != null) {
-			if (handler != null) {
-				try {
-					handler.handleRow(dataRow);
-				} catch (IllegalStateException e) {
-					handler.handleException(e);
-				} catch(CSVException csve) {
-					handler.handleException(csve);
+			List<String> dataRow;
+			while ((dataRow = this.readDataRow()) != null) {
+				if (handler != null) {
+					try {
+						handler.handleRow(dataRow);
+					} catch (IllegalStateException e) {
+						handler.handleException(e);
+					} catch (CSVException csve) {
+						handler.handleException(csve);
+					}
 				}
 			}
-		}
-		
-		} catch(CSVException e) {
-			
+
+		} catch (CSVException e) {
+			this.handleException(e);
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			this.handleException(e);
 		} catch (ParseException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			this.handleException(e);
 		}
-		
-		// Reached end of file. 
-		return true; 
+
+		// Reached end of file.
+		return true;
 	}
-	
+
 	/**
 	 * Parses next document.
 	 * 
@@ -797,7 +814,7 @@ public class CSVReader {
 	public List<CharSequence> readRow() throws IOException, java.text.ParseException {
 		List<CharSequence> result = null;
 		if (lineScanner.hasNext()) {
-			// The source has more data rows. 
+			// The source has more data rows.
 			if (lineScanner.hasNext(this.dataRowPattern())) {
 				String token = lineScanner.nextLine();
 				Matcher matcher = this.dataRowPattern().matcher(token);
@@ -854,7 +871,7 @@ public class CSVReader {
 	 * @param row The list of fields of the tested row.
 	 * @return True, if and only if the given row is valid.
 	 */
-	public boolean validRow(List<CharSequence> row) {
+	public boolean validRow(List<? extends CharSequence> row) {
 		return row != null && validFieldCount(row.size());
 	}
 
@@ -865,7 +882,7 @@ public class CSVReader {
 	 * @return True, if and only if the given row is valid header row. The default
 	 *         requires every field has different non-empty name.
 	 */
-	public boolean validDataRow(List<CharSequence> row) {
+	public boolean validDataRow(List<? extends CharSequence> row) {
 		// The value is only instance of the value, if its index is equal to its
 		// last index. All tested values exists in the rows.
 		//
@@ -880,7 +897,7 @@ public class CSVReader {
 	 * @return True, if and only if the row is valid.
 	 * @throws ParseException The exception caused by an invalid row.
 	 */
-	public boolean checkDataRow(List<CharSequence> row) throws ParseException {
+	public boolean checkDataRow(List<? extends CharSequence> row) throws ParseException {
 		if (row == null) {
 			throw new ParseException("Undefined row", 0);
 		} else if (!validDataRow(row)) {
@@ -908,7 +925,7 @@ public class CSVReader {
 	 * @return True, if and only if the given row is valid header row. The default
 	 *         requires every field has different non-empty name.
 	 */
-	public boolean validHeaderRow(List<CharSequence> row) {
+	public boolean validHeaderRow(List<? extends CharSequence> row) {
 		// The value is only instance of the value, if its index is equal to its
 		// last index. All tested values exists in the rows.
 		//
@@ -924,7 +941,7 @@ public class CSVReader {
 	 * @return True, if and only if the header row is valid.
 	 * @throws ParseException The exception caused by an invalid row.
 	 */
-	public boolean checkHeaderRow(List<CharSequence> row) throws ParseException {
+	public boolean checkHeaderRow(List<? extends CharSequence> row) throws ParseException {
 		if (row == null) {
 			throw new ParseException("Undefined row", 0);
 		} else {
@@ -998,9 +1015,9 @@ public class CSVReader {
 	}
 
 	/**
-	 * Reads header row. 
+	 * Reads header row.
 	 * 
-	 * @return The header row fields. 
+	 * @return The header row fields.
 	 * @throws IOException           The reading of row failed due IO exception.
 	 * @throws ParseException        The reading of the row failed due parse error.
 	 * @throws IllegalStateException The state of the reader prevents reading header
@@ -1008,7 +1025,8 @@ public class CSVReader {
 	 */
 	public List<String> readHeaderRow() throws IOException, ParseException, IllegalStateException {
 		List<CharSequence> result = readRow();
-		if (result == null) return null; // There is no header to read. 
+		if (result == null)
+			return null; // There is no header to read.
 
 		// Checking validity of the header row.
 		if (validHeaderRow(result)) {
@@ -1029,7 +1047,7 @@ public class CSVReader {
 	 * IF the CVS reader has read any header or data row, the reading of a header
 	 * row always triggers exception.
 	 * 
-	 * @return The read data row. 
+	 * @return The read data row.
 	 * @throws IOException           The reading of row failed due IO exception.
 	 * @throws ParseException        The reading of the row failed due parse error.
 	 * @throws IllegalStateException The state of the reader prevents reading header

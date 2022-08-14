@@ -3,4 +3,5 @@ module kautiainen.antti.solita.helsinkicitybikeapp {
 	requires java.base;
 	requires java.net.http;
 	requires javaee.api;
+	requires java.logging;
 }

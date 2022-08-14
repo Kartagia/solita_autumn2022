@@ -237,10 +237,10 @@ public class SimpleCSVDocument implements CSVDocument {
 	}
 
 	@Override
-	public boolean setFields(List<String> headerFields) throws IllegalStateException, CSVException {
+	public boolean setFields(List<? extends CharSequence> headerFields) throws IllegalStateException, CSVException {
 		if (!CSVDocument.super.setFields(headerFields)) {
 			// The header was not set by the parent, but it did not cause exception.
-			this.headers.addAll(headerFields);
+			this.headers.addAll(headerFields.stream().map((CharSequence val)->(val instanceof String?(String)val:val.toString())).toList());
 			this.fieldCount = headerFields.size();
 		}
 		return true;
@@ -252,7 +252,7 @@ public class SimpleCSVDocument implements CSVDocument {
 	}
 
 	@Override
-	public boolean addDataRow(List<String> fieldData) throws CSVException {
+	public boolean addDataRow(List<? extends CharSequence> fieldData) throws CSVException {
 		try {
 			if (this.dataRows.add(this.new DataRow(fieldData))) {
 				if (getFieldCount() == null) {

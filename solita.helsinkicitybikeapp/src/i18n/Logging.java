@@ -34,7 +34,7 @@ public interface Logging {
 			return new LocalizedLogging() {
 			};
 		}
-
+		
 		/**
 		 * The localized logging using given localization.
 		 * 
@@ -46,7 +46,7 @@ public interface Logging {
 			if (localization == null) {
 				return instance();
 			}
-
+			
 			// Returns the default logging with localization
 			return new LocalizedLogging() {
 

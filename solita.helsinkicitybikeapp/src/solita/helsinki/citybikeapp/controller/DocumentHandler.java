@@ -26,12 +26,12 @@ public class DocumentHandler implements CSVHandler {
 	}
 	
 	@Override
-	public void handleRow(List<String> rowFields) throws CSVException {
+	public void handleRow(List<? extends CharSequence> rowFields) throws CSVException {
 		doc.addDataRow(rowFields);
 	}
 
 	@Override
-	public void handleHeaders(List<String> headerFields) throws CSVException {
+	public void handleHeaders(List<? extends CharSequence> headerFields) throws CSVException {
 		try {
 			doc.setFields(headerFields);
 		} catch(IllegalStateException ex) {

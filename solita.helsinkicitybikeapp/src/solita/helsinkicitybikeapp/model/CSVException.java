@@ -22,7 +22,7 @@ public class CSVException extends RuntimeException {
 		 * @param message The message of the exception. 
 		 * @param rowFields The invalid row fields. 
 		 */
-		public DataRowException(List<String> rowFields, String message) {
+		public DataRowException(List<? extends CharSequence> rowFields, String message) {
 			this(message, rowFields, null); 
 		}
 		
@@ -32,7 +32,7 @@ public class CSVException extends RuntimeException {
 		 * @param rowFields The invalid row fields. 
 		 * @param cause The cause of the exception. 
 		 */
-		public DataRowException(String message, List<String> rowFields, Throwable cause) {
+		public DataRowException(String message, List<? extends CharSequence> rowFields, Throwable cause) {
 			super(RowType.HEADER, message, rowFields, cause);
 		}
 	}
@@ -49,7 +49,7 @@ public class CSVException extends RuntimeException {
 		 * @param message The message of the exception. 
 		 * @param rowFields The invalid row fields. 
 		 */
-		public HeaderException(String message, List<String> rowFields) {
+		public HeaderException(String message, List<? extends CharSequence> rowFields) {
 			this(message, rowFields, null); 
 		}
 		
@@ -59,7 +59,7 @@ public class CSVException extends RuntimeException {
 		 * @param rowFields The invalid row fields. 
 		 * @param cause The cause of the exception. 
 		 */
-		public HeaderException(String message, List<String> rowFields, Throwable cause) {
+		public HeaderException(String message, List<? extends CharSequence> rowFields, Throwable cause) {
 			super(RowType.HEADER, message, rowFields, cause);
 		}
 	}
@@ -86,7 +86,7 @@ public class CSVException extends RuntimeException {
 		 * 
 		 * @param row The row causing the problem.
 		 */
-		public DuplicateHeaderException(List<String> row) {
+		public DuplicateHeaderException(List<? extends CharSequence> row) {
 			this(DUPLICATE_HEADER_MESSAGE, row);
 		}
 
@@ -96,7 +96,7 @@ public class CSVException extends RuntimeException {
 		 * @param message THe message of the exception.
 		 * @param row     The row causing the problem.
 		 */
-		public DuplicateHeaderException(String message, List<String> row) {
+		public DuplicateHeaderException(String message, List<? extends CharSequence> row) {
 			super(message, row);
 		}
 	}
@@ -169,7 +169,7 @@ public class CSVException extends RuntimeException {
 		 * @param type The type of the row.
 		 * @param row  The row causing the exception.
 		 */
-		public EmptyRowException(CSVException.RowType type, List<String> row) {
+		public EmptyRowException(CSVException.RowType type, List<? extends CharSequence> row) {
 			this(type, EMPTY_ROW_MESSAGE, row, row == null ? new NullPointerException(NULL_ROW_MESSAGE)
 					: new IllegalArgumentException(ILLEGAL_ROW_MESSAGE));
 		}
@@ -181,7 +181,7 @@ public class CSVException extends RuntimeException {
 		 * @param row The invalid row causing the exception. 
 		 * @param cause The cause of the exception. 
 		 */
-		public EmptyRowException(CSVException.RowType type, String message, List<String> row, Throwable cause) {
+		public EmptyRowException(CSVException.RowType type, String message, List<? extends CharSequence> row, Throwable cause) {
 			super(type, message, row, cause);
 		}
 	}
@@ -210,7 +210,7 @@ public class CSVException extends RuntimeException {
 		 * @param row The invalid row causing the exception. 
 		 * @param cause The cause of the exception. 
 		 */
-		public InvalidRowException(CSVException.RowType type, String message, List<String> row, Throwable cause) {
+		public InvalidRowException(CSVException.RowType type, String message, List<? extends CharSequence> row, Throwable cause) {
 			super(message, cause);
 			this.rowType = type;
 			this.row = row;
@@ -223,7 +223,7 @@ public class CSVException extends RuntimeException {
 		 * @param message The message of the row.
 		 * @param cause   The cause of the row.
 		 */
-		public InvalidRowException(CSVException.RowType type, String message, List<String> row) {
+		public InvalidRowException(CSVException.RowType type, String message, List<? extends CharSequence> row) {
 			this(type, message, row, null);
 		}
 
@@ -235,7 +235,7 @@ public class CSVException extends RuntimeException {
 		/**
 		 * The row causing the problem. Changes on this row will change the invalid row. 
 		 */
-		public final List<String> row;
+		public final List<? extends CharSequence> row;
 
 	}
 

@@ -7,6 +7,7 @@ import java.net.URL;
 import java.sql.Connection;
 import java.text.ParseException;
 import java.util.List;
+import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
@@ -67,14 +68,18 @@ public class JourneysLoader implements i18n.Logging.LocalizedMessageLogging {
 		private List<String> propertyCaptions = null; 
 		
 		@Override
-		public void handleRow(List<String> rowFields) throws CSVException {
+		public void handleRow(List<? extends CharSequence> rowFields) throws CSVException {
 			// Creating the journey to add.
 			Journeys.Journey entry = (JourneysLoader.this.getJourneys()).new Journey();
-			int index = 0; 
+			int index = 0;
+			String fieldString; 
+			CharSequence fieldValue; 
 			for (String property: JourneysLoader.this.getJourneys().getPropertyNames()) {
 				try {
 					// Assigning the property value
-					entry.setProperty(property, entry.propertyFormatter(property).parseObject(rowFields.get(index))); 
+					fieldValue = rowFields.get(index); 
+					fieldString = (fieldValue instanceof String?(String)fieldValue:fieldValue.toString());
+					entry.setProperty(property, entry.propertyFormatter(property).parseObject(fieldString)); 
 				} catch(IllegalArgumentException | java.text.ParseException pe) {
 					// The value was invalid. 
 					throw new CSVException.InvalidRowException(RowType.DATA, 
@@ -85,8 +90,14 @@ public class JourneysLoader implements i18n.Logging.LocalizedMessageLogging {
 			JourneysLoader.this.getJourneys().addJourney(entry); 
 		}
 
+		/**
+		 * Function converting character sequence into string with cast if possible.
+		 */
+		public static final Function<CharSequence, String> VALUE_TO_STRING = 
+				(CharSequence value) -> (value instanceof String?(String)value:value.toString()); 
+		
 		@Override
-		public void handleHeaders(List<String> headerFields) throws CSVException {
+		public void handleHeaders(List<? extends CharSequence> headerFields) throws CSVException {
 			if (propertyCaptions != null) {
 				throw new CSVException.DuplicateHeaderException(headerFields);
 			}
@@ -95,10 +106,12 @@ public class JourneysLoader implements i18n.Logging.LocalizedMessageLogging {
 				throw new CSVException.InvalidRowException(CSVException.RowType.HEADER, "Invalid field count", headerFields);
 			} 
 			// TODO: Add journey caption support to the Journeys
-			propertyCaptions = headerFields; 
+			String fieldString; 
+			CharSequence fieldValue; 
+			propertyCaptions = headerFields.stream().map(VALUE_TO_STRING).toList();
 			List<String> propertyNames = data.getJourneyPropertyNames(); 
 			for (int i=0, len=propertyNames.size(); i < len; i++) {
-				data.setPropertyCaption(propertyNames.get(i), headerFields.get(i)); 
+				data.setPropertyCaption(propertyNames.get(i), propertyCaptions.get(i)); 
 			}
 		}
 		

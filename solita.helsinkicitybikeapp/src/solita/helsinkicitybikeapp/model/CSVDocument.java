@@ -2,6 +2,8 @@ package solita.helsinkicitybikeapp.model;
 
 import java.util.List;
 
+import solita.helsinkicitybikeapp.model.CSVException.RowType;
+
 /**
  * The CSV document containing data read from the document.
  * 
@@ -26,7 +28,7 @@ public interface CSVDocument {
 	 *  setting of the header rows. 
 	 * @throws CSVException The setting of the field caused CSV exception. 
 	 */
-	default boolean setFields(List<String> headerFields) throws IllegalStateException, CSVException {
+	default boolean setFields(List<? extends CharSequence> headerFields) throws IllegalStateException, CSVException {
 		if (this.getHeaderFields() != null) {
 			throw new IllegalStateException("Cannot assign header fields twice"); 
 		} else if (this.size() > 0) {
@@ -61,13 +63,13 @@ public interface CSVDocument {
 	 * @return True, if and only if the row was added. 
 	 * @throws CSVException The addition of the data row caused CSV exception. 
 	 */
-	default boolean addDataRow(List<String> fieldData) throws CSVException {
+	default boolean addDataRow(List<? extends CharSequence> fieldData) throws CSVException {
 		if (fieldData == null) {
-			throw new IllegalArgumentException("Undefined field data row"); 
+			throw new CSVException.EmptyRowException(); 
 		} else {
 			Integer fieldCount = this.getFieldCount(); 
 			if (fieldCount != null && fieldData.size() != fieldCount) {
-				throw new IllegalArgumentException("Invalid nubmer of fields");
+				throw new CSVException.InvalidRowException(RowType.DATA, "Invalid number of fields", fieldData);
 			}
 			return false; 
 		}

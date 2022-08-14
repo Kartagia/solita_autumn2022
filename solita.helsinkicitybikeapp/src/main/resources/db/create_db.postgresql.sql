@@ -2,7 +2,7 @@
 /* Dropping all stuff the new tables require. 
  */
 
-DROP TABLE IF EXISTS stations, station_names, "operators" CASCADE;
+DROP TABLE IF EXISTS stations, station_names, "operators", localized_operator_names CASCADE;
 
 
 /* The function returning the next identifier for a new entry on operators.  
@@ -338,12 +338,12 @@ BEGIN
 		IF NOT FOUND THEN RETURN NULL; END IF;
 		
 		-- Updating the operators table. 
-		RAISE NOTICE FORMAT('Updating row %s on operators', operator_id); 
+		RAISE NOTICE USING MESSAGE = FORMAT('Updating row %s on operators', operator_id); 
 		UPDATE operators SET operator_name=NEW.operator_name WHERE opid=operator_id; 
 		IF NOT FOUND THEN 
-			RAISE EXCEPTION FORMAT('Could not change the operator name of operator %L', NEW.operator_id); 
+			RAISE EXCEPTION USING MESSAGE=FORMAT('Could not change the operator name of operator %L', NEW.operator_id); 
 		END IF; 
-		RAISE NOTICE FORMAT('Updated operator %s name to %s', NEW.operator_id, NEW.operator_name); 
+		RAISE NOTICE USING MESSAGE=FORMAT('Updated operator %s name to %s', NEW.operator_id, NEW.operator_name); 
 		
 		-- Checking if the new entry already exists. 
 		IF (NEW.lang <> OLD.lang) THEN
@@ -362,7 +362,7 @@ BEGIN
 		ELSE 
 			-- The language does not change, thus updating existing entry. 
 			-- Trying to update existing station_names table entry. 
-			RAISE NOTICE format('Updating row %, % on station names', operator_id, lang); 
+			RAISE NOTICE USING MESSAGE=format('Updating row %, % on station names', operator_id, lang); 
 			UPDATE station_names SET station_id=NEW.sid, station_name = NEW.station_name WHERE station_id = NEW.sid; 
 			IF NOT FOUND THEN 
 				-- Inserting new row to the station_names. 
@@ -416,6 +416,7 @@ CREATE OR REPLACE TRIGGER update_station_info_view INSTEAD OF INSERT
     OR DELETE ON station_info FOR EACH ROW EXECUTE FUNCTION alter_station_info_view ();
 
 -- Adding the journeys table.
+DROP TABLE journeys CASCADE; 
 CREATE TABLE journeys (
     departure_time timestamp NOT NULL,
     arrival_time timestamp DEFAULT NULL,
@@ -424,8 +425,6 @@ CREATE TABLE journeys (
     arrival_station_id smallint,
     duration smallint,
     distance smallint,
-	departure_station_name VARCHAR, 
-	arrival_station_name VARCHAR, 
     constraint valid_departure_station_id 
 	FOREIGN KEY (departure_station_id) REFERENCES stations (sid) ON UPDATE CASCADE ON DELETE CASCADE,
     constraint valid_arrival_station_id 
@@ -433,31 +432,39 @@ CREATE TABLE journeys (
 );
 
 -- The function to deal with updats on the view names_of_operators updates.
-CREATE OR REPLACE FUNCTION alter_journeys_trigger ()
+CREATE OR REPLACE FUNCTION alter_journeys_info_view ()
     RETURNS TRIGGER
     AS $BODY$
 DECLARE
+    data_row RECORD; 
 	station_name VARCHAR; 
 BEGIN
     IF T_OP = 'INSERT' OR T_OP = 'UPDATE' THEN
         -- Insertting a new record or altering an existing record.
-        IF NEW.departure_station_id IS NOT NULL THEN
-            SELECT
-                name into station_name
-            FROM
-                station_names
-            WHERE
-                station_id = NEW.departure_station_id AND 
-				name = NEW.departure_station_name;
-			IF NOT FOUND THEN RETURN NULL; END IF; 
-        END IF;
-        IF NEW.arrival_station_id IS NOT NULL AND (NEW.arrival_station_name IS NULL OR 
-        NOT EXISTS (SELECT name FROM station_names 
-					WHERE station_id = NEW.arrival_station_id) AND name = NEW.station_name) THEN
-            -- Aleration is not accepted.
-            RETURN NULL;
-        END IF;
-
+        IF NEW.departure_station_name IS NULL THEN 
+            -- Seeking the station name from station names. 
+            SELECT station_name, lang INTO STRICT data_row 
+            FROM station_info
+            WHERE station_info.station_id = NEW.departure_station_id;
+            IF FOUND  THEN 
+				-- The station has no name
+				INSERT INTO station_names (name, lang, station_id) VALUES (data_row.station_name, data_row.lang, NEW.departure_station_id)
+                RETURNING name INTO station_name; 
+				IF NOT FOUND THEN 
+					RAISE EXCEPTION 'Could not add new departure station name';
+				END IF; 
+			END IF;
+        ELSE
+            -- Testing validity of the station name. 
+            IF NOT EXISTS (
+                SELECT name   
+                FROM station_names
+                WHERE 
+                    station_id = NEW.departure_station_id AND station_name = NEW.departure_station_name) THEN  
+                -- Invalid station name. 
+                return NULL; 
+            END IF; 
+        END IF; 
         -- The alteration is accepted. 
     ELSE
         -- Deleting record - no constrait checks are performed as the fields are always correct
@@ -472,9 +479,18 @@ END;
 $BODY$
 LANGUAGE plpgsql;
 
+-- Creating journeys view with descending order of time and row id. 
+CREATE OR REPLACE VIEW journeys_info AS 
+SELECT departure_time, arrival_time, departure_station_id, arrival_station_id, ROW_NUMBER () OVER (ORDER BY departure_time DESC, journeys.jid ASC) AS row_id, 
+departure.station_name as departure_station_name, arrival.station_name as arrival_station_name, distance, 
+EXTRACT(EPOCH FROM (arrival_time - departure_time)) AS duration
+FROM journeys 
+LEFT JOIN station_info AS departure ON journeys.departure_station_id=departure.sid
+LEFT JOIN station_info AS arrival ON journeys.arrival_station_id=arrival.sid; 
+
+
 -- Adding the trigger updating the localized_operator_names table accordingly after the operators table has been updated.
 -- - This trigger is called before the operator counts are updated.
-CREATE OR REPLACE TRIGGER journeys_altering_trigger BEFORE INSERT
+CREATE OR REPLACE TRIGGER journeys_info_altering_trigger INSTEAD OF INSERT
     OR UPDATE
-    OR DELETE ON journeys FOR EACH ROW EXECUTE FUNCTION alter_journeys_trigger ();
-
+    OR DELETE ON journeys_info FOR EACH ROW EXECUTE FUNCTION alter_journeys_info_view ();;
